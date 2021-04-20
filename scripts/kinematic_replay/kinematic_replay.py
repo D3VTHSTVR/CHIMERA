@@ -1,7 +1,6 @@
 import pybullet as p
 import numpy as np
-import pickle
-
+import pandas as pd
 from NeuroMechFly.simulation.bullet_simulation import BulletSimulation
 from NeuroMechFly.container import Container
 from NeuroMechFly.sdf.units import SimulationUnitScaling
@@ -24,14 +23,13 @@ class DrosophilaSimulation(BulletSimulation):
         self.pose = [0] * self.num_joints
         self.vel = [0] * self.num_joints
         self.angles = self.load_angles(
-            f'./new_angles/{self.behavior}_converted_joint_angles.pkl')
+            f'../../data/joint_kinematics/{self.behavior}/{self.behavior}_converted_joint_angles.pkl')
         self.velocities = self.load_angles(
-            f'./new_angles/{self.behavior}_converted_joint_velocities.pkl')
+            f'../../data/joint_kinematics/{self.behavior}/{self.behavior}_converted_joint_velocities.pkl')
 
     def load_angles(self, data_path):
         try:
-            with open(data_path, 'rb') as f:
-                return pickle.load(f)
+            return pd.read_pickle(data_path)
         except BaseException:
             FileNotFoundError(f"File {data_path} not found!")
 
@@ -84,15 +82,12 @@ class DrosophilaSimulation(BulletSimulation):
         """
         Code that glues the sensors/feedback to controller in the system.
         """
-        pass
 
     def update_parameters(self, params):
         """ Update parameters. """
-        pass
 
     def optimization_check(self):
         """ Optimization check. """
-        pass
 
 
 def main():
