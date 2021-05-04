@@ -58,7 +58,7 @@ if __name__ == "__main__":
                 problem.number_of_objectives,
                 n_pop,
                 n_gen,
-                datetime.now().strftime('%m%d_%H%M'),
+                datetime.now().strftime('%y%m%d_%H%M%S'),
             )
         )
     )
