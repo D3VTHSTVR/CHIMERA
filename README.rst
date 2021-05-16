@@ -1,8 +1,3 @@
-.. neuromechfly documentation master file, created by
-   sphinx-quickstart on Wed May 12 09:24:55 2021.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 NeuroMechFly
 ============
 
@@ -14,11 +9,6 @@ NeuroMechFly
 experimental datasets and to test theories of neuromechanical behavioral
 control. For the technical background and details, please refer to our
 `paper <https://www.biorxiv.org/content/10.1101/2021.04.17.440214v1>`__.
-
-
-.. only:: html
-
-   .. figure:: ../images/NeuroMechFly.gif
 
 If you use NeuroMechFly in your research, you can cite us:
 
@@ -36,35 +26,25 @@ If you use NeuroMechFly in your research, you can cite us:
        journal = {bioRxiv}
    }
 
-Installation and Getting started
-================================
+Content
+-------
 
-.. toctree::
-   :maxdepth: 2
+-  `Starting <#starting>`__
+-  `Reproducing the experiments <docs/source/replication.rst>`__
+-  `Miscellaneous <docs/source/misc.rst>`__
 
-   installation
+Starting
+--------
 
-Reproducing the experiments
-===========================
+-  `Installation <docs/source/installation.rst>`__
+-  `Angle Processing <docs/source/angleprocessing.rst>`__
 
-.. toctree::
-   :maxdepth: 2
+License
+-------
 
-   replication
+`Apache 2.0 <https://www.apache.org/licenses/LICENSE-2.0>`__
 
-Miscellaneous
-=============
-
-.. toctree::
-   :maxdepth: 2
-
-   misc.rst
-
-
-Documentation
-==============
-
-.. toctree::
-   :maxdepth: 2
-
-   reference/index
+.. |License| image:: https://img.shields.io/badge/License-Apache%202.0-blue.svg
+   :target: https://opensource.org/licenses/Apache-2.0
+.. |Version| image:: https://badge.fury.io/gh/tterb%2FHyde.svg
+   :target: https://badge.fury.io/gh/tterb%2FHyde
