@@ -131,9 +131,21 @@ def generate_config_file(log: dict) -> None:
 class DrosophilaEvolution(FloatProblem):
     """ Class for Evolutionary Optimization. """
 
+    def name(self) -> str:
+        return "DrosophilaEvolution"
+
+    def number_of_variables(self) -> int:
+        return 63
+
+    def number_of_objectives(self) -> int:
+        return 2
+
+    def number_of_constraints(self) -> int:
+        return 0
+
     def __init__(self):
         super(DrosophilaEvolution, self).__init__()
-        # Set number of variables, objectives, and contraints
+        # Set number of variables, objectives, and contraints (for compatibility)
         self.number_of_variables = 63
         self.number_of_objectives = 2
         self.number_of_constraints = 0
@@ -277,15 +289,19 @@ class DrosophilaEvolution(FloatProblem):
             'ground_friction_coef': 1.3
         }
         # Simulation options
+        controller_type = getattr(self, 'controller_type', 'cpg')
+        ground = getattr(self, 'ground', 'ball')
         sim_options = {
             "headless": True,
+            "controller_type": controller_type,
+            "ground": ground,
             "model": str(model_path),
             "time_step": time_step,
             "solver_iterations": 100,
             "model_offset": [0., 0., 11.2e-3],
-            "pose": pose_path,
+            "pose": str(pose_path),
             "run_time": run_time,
-            "controller": controller_path,
+            "controller": str(controller_path) if controller_type == 'cpg' else None,
             "base_link": 'Thorax',
             "ground_contacts": ground_contacts,
             "camera_distance": 4.5,

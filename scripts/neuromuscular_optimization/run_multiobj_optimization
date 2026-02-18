@@ -39,6 +39,18 @@ def parse_args():
     parser.add_argument('-g', '--gen', type=int, default=60)
     parser.add_argument('-p', '--pop', type=int, default=200)
     parser.add_argument('-n', '--process', type=int, default=8)
+    parser.add_argument(
+        '--controller',
+        choices=['cpg', 'snn'],
+        default='cpg',
+        help='Controller type: cpg (default) or snn',
+    )
+    parser.add_argument(
+        '--ground',
+        choices=['ball', 'floor'],
+        default='ball',
+        help='Ground type: ball (default) or floor',
+    )
     parser.set_defaults(gui=False, profile=False)
 
     return parser.parse_args()
@@ -51,6 +63,8 @@ if __name__ == "__main__":
     # Problem
     max_evaluations = n_pop*n_gen
     problem = multiobj_optimization.DrosophilaEvolution()
+    problem.controller_type = args.controller
+    problem.ground = args.ground
 
     # Algorithm
     algorithm = NSGAII(
@@ -79,7 +93,7 @@ if __name__ == "__main__":
 
     # Results Dumping
     result_path = 'optimization_results/run_{}_var_{}_obj_{}_pop_{}_gen_{}_{}'.format(
-            problem.get_name(),
+            problem.name(),
             problem.number_of_variables,
             problem.number_of_objectives,
             n_pop,
@@ -107,8 +121,8 @@ if __name__ == "__main__":
     # Run optimisation
     algorithm.run()
 
-    # Get results
-    front = algorithm.get_result()
+    # Get results (jMetalPy API: result() not get_result())
+    front = algorithm.result()
     ranking = FastNonDominatedRanking()
     # pareto_fronts = ranking.compute_ranking(front)
 
@@ -127,5 +141,5 @@ if __name__ == "__main__":
     Path(os.path.join(output_dir, 'optimization_results/CONFIG.yaml')).rename(os.path.join(output_dir, result_path, 'CONFIG.yaml'))
 
     print('Algorithm (continuous problem): ' + algorithm.get_name())
-    print('Problem: ' + problem.get_name())
+    print('Problem: ' + problem.name())
     print('Computing time: ' + str(algorithm.total_computing_time*1/60))
