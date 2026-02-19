@@ -45,14 +45,18 @@ class DrosophilaSimulation(BulletSimulation):
         fixed_positions=None,
         units=SimulationUnitScaling(
             meters=1000,
-            kilograms=1000)):
+            kilograms=1000),
+        angle_scale=1.0,
+        speed=1.0):
 
         self.last_draw = []
         self.grf = []
         self.kp = kp
         self.kv = kv
         self.angles_path = angles_path
+        self.angle_scale = angle_scale
         self.fixed_positions = fixed_positions
+        self.speed = float(speed) if speed else 1.0
 
         super().__init__(container, units, **sim_options)
 
@@ -152,11 +156,17 @@ class DrosophilaSimulation(BulletSimulation):
 
         # Setting the joint angular positions of leg DOFs based on pose estimation
         for joint_name, joint_pos in self.angles.items():
-            self.pose[self.joint_id[joint_name]] = joint_pos[t]
+            idx = int(t * self.speed)
+            if idx >= len(joint_pos):
+                idx = len(joint_pos) - 1
+            self.pose[self.joint_id[joint_name]] = joint_pos[idx] * self.angle_scale
 
         # Setting the joint angular velocities of leg DOFs based on pose estimation
         for joint_name, joint_vel in self.velocities.items():
-            self.vel[self.joint_id[joint_name]] = joint_vel[t]
+            idx = int(t * self.speed)
+            if idx >= len(joint_vel):
+                idx = len(joint_vel) - 1
+            self.vel[self.joint_id[joint_name]] = joint_vel[idx]
 
         # Control the joints through position controller
         # Velocity can be discarded if not available and gains can be changed

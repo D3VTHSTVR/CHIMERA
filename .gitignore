@@ -140,3 +140,8 @@ build/
 # Cython
 *.c
 *.html
+
+# Optimization results (large files)
+scripts/neuromuscular_optimization/optimization_*/
+scripts/neuromuscular_optimization/simulation_*/
+*.h5

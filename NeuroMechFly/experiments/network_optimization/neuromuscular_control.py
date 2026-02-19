@@ -406,20 +406,26 @@ class DrosophilaSimulation(BulletSimulation):
         # Slow 2 rad (10 mm/sec), fast 6.8 rad (34 mm/sec)
         # The range is 1.2 < ball rotation per second < 7.2 rad/sec
         total_angular_dist = 1.2 * self.run_time
-        ball_angular_position = np.array(self.ball_rotations)[0]
-        moving_limit_lower = ((self.time / self.run_time)
-                              * total_angular_dist) - 0.20
-        moving_limit_upper = ((self.time / self.run_time)
-                              * 6 * total_angular_dist)
-        # print(moving_limit_lower, ball_angular_position, moving_limit_upper)
+        if self.ground == 'floor':
+            movement_metric = self.base_position[0]
+            moving_limit_lower = (
+                (self.time / self.run_time) * total_angular_dist - 0.20
+            ) * self.ball_radius * self.units.meters
+            moving_limit_upper = (
+                (self.time / self.run_time) * 6 * total_angular_dist
+            ) * self.ball_radius * self.units.meters
+        else:
+            ball_angular_position = np.array(self.ball_rotations)[0]
+            movement_metric = np.abs(ball_angular_position) * self.ball_radius * self.units.meters
+            moving_limit_lower = (
+                (self.time / self.run_time) * total_angular_dist - 0.20
+            ) * self.ball_radius * self.units.meters
+            moving_limit_upper = (
+                (self.time / self.run_time) * 6 * total_angular_dist
+            ) * self.ball_radius * self.units.meters
 
-        self.opti_lava += 1.0 if np.any(
-            np.abs(ball_angular_position) < moving_limit_lower
-        ) or ball_angular_position < 0 else 0.0
-
-        self.opti_lava += 1.0 if np.any(
-            np.abs(ball_angular_position) > moving_limit_upper
-        ) or ball_angular_position < 0 else 0.0
+        self.opti_lava += 1.0 if movement_metric < moving_limit_lower else 0.0
+        self.opti_lava += 1.0 if movement_metric > moving_limit_upper else 0.0
 
     def check_joint_limits(self):
         """ Check if the active exceed joint limits """
@@ -448,7 +454,6 @@ class DrosophilaSimulation(BulletSimulation):
 
     def update_parameters(self, params):
         """ Implementation of abstract method. """
-        parameters = self.container.neural.parameters
         n_nodes = int(self.controller.graph.number_of_nodes() / 4)
         # Number of joints, muscle gains, phase variables
         edges_joints = int(self.controller.graph.number_of_nodes() / 3)
@@ -458,10 +463,15 @@ class DrosophilaSimulation(BulletSimulation):
         opti_joint_phases = params[5 * n_nodes:5 * n_nodes + edges_joints]
         opti_base_phases = params[5 * n_nodes + edges_joints:]
 
-        # Update frequencies
-        for name in parameters.names:
-            if 'freq' in name:
-                parameters.get_parameter(name).value = opti_frequency
+        # SNN controller: phases come from decoder; only update muscle gains
+        is_snn = getattr(self, 'controller_type', 'cpg') == 'snn'
+
+        if not is_snn:
+            parameters = self.container.neural.parameters
+            # Update frequencies
+            for name in parameters.names:
+                if 'freq' in name:
+                    parameters.get_parameter(name).value = opti_frequency
 
         # Update active muscle parameters
         symmetry_joints = filter(
@@ -479,6 +489,10 @@ class DrosophilaSimulation(BulletSimulation):
                 right_parameters
             )
             self.active_muscles[joint].update_parameters(left_parameters)
+
+        if is_snn:
+            return  # Phases come from SNN decoder; skip CPG phase updates
+
         # Update phases for intraleg phase relationships
         # Edges to set phases for
         phase_edges = [['Coxa', 'Femur'], ['Femur', 'Tibia']]

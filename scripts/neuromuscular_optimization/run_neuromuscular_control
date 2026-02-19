@@ -55,6 +55,12 @@ def parse_args():
     parser.add_argument('--log_penalties', dest='log_penalties', action='store_true')
     parser.add_argument('--profile', dest='profile', action='store_true')
     parser.add_argument('--solver_iterations', dest='solver_iterations', type=int, default=100)
+    parser.add_argument(
+        '--controller',
+        choices=['cpg', 'snn'],
+        default='cpg',
+        help='Controller type: cpg (default) or snn (spiking neural network)',
+    )
     parser.set_defaults(gui=False, profile=False)
 
     return parser.parse_args()
@@ -105,6 +111,7 @@ def main(args):
     # Simulation options
     sim_options = {
         "headless": not args.gui,
+        "controller_type": args.controller,
         "model": str(model_path),
         "model_offset": [0., 0., 11.2e-3],
         "run_time": run_time,
@@ -112,7 +119,7 @@ def main(args):
         "pose": pose_path,
         "solver_iterations": 100,
         "base_link": 'Thorax',
-        "controller": controller_path,
+        "controller": str(controller_path),
         "ground_contacts": ground_contact,
         # 'self_collisions': self_collision,
         "draw_collisions": True,  # : Set True to change the color of colliding segments

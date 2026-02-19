@@ -3,7 +3,6 @@
 import logging
 import os
 from pathlib import Path
-import pkgutil
 import random
 import yaml
 from typing import Tuple
@@ -22,12 +21,12 @@ import farms_pylog as pylog
 from farms_container import Container
 from NeuroMechFly.experiments.network_optimization.neuromuscular_control import \
     DrosophilaSimulation
+from NeuroMechFly.utils.path_utils import get_neuromechfly_path
 
 
 LOGGER = logging.getLogger('jmetal')
 
-neuromechfly_path = Path(pkgutil.get_loader(
-    "NeuroMechFly").get_filename()).parents[1]
+neuromechfly_path = get_neuromechfly_path()
 
 pylog.set_level('error')
 
@@ -321,9 +320,12 @@ class DrosophilaEvolution(FloatProblem):
         #: OBJECTIVES
         objectives = {}
 
-        #: Forward distance (backward rotation of the ball)
-        objectives['distance'] = np.array(fly.ball_rotations)[
-            0] * fly.ball_radius * fly.units.meters
+        #: Forward distance (ball rotation * radius for ball, base_position for floor)
+        if ground == 'floor':
+            objectives['distance'] = fly.base_position[0]
+        else:
+            objectives['distance'] = np.array(fly.ball_rotations)[
+                0] * fly.ball_radius * fly.units.meters
         objectives['stability'] = fly.opti_stability
         # objectives['mechanical_work'] = np.sum(fly.mechanical_work)
 

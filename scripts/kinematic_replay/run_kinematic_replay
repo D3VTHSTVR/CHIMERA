@@ -30,6 +30,11 @@ def parse_args():
     parser.add_argument('-pf', '--profile', default=False, type=str, required=False, dest="profile")
     parser.add_argument('--record', dest='record', action='store_true')
     parser.add_argument('--show_collisions', dest='show_collisions', action='store_true')
+    parser.add_argument('--headless', dest='headless', action='store_true')
+    parser.add_argument('--rotate_camera', dest='rotate_camera', action='store_true')
+    parser.add_argument('--slow', dest='slow_down', action='store_true')
+    parser.add_argument('--sleep_time', dest='sleep_time', type=float, default=0.001)
+    parser.add_argument('--speed', dest='speed', type=float, default=10.0)
     parser.add_argument('-fly', '--fly_number', default='1')
 
     return parser.parse_args()
@@ -39,7 +44,9 @@ def main(args):
     """ Main function """
     behavior = args.behavior.lower()
 
-    run_time = 6.0 if behavior == 'walking' else 4.0
+    base_run_time = 6.0 if behavior == 'walking' else 4.0
+    speed = args.speed if args.speed and args.speed > 0 else 1.0
+    run_time = base_run_time / speed
     time_step = 5e-4
     starting_time = 0.0
 
@@ -120,7 +127,7 @@ def main(args):
 
     # Simulation options
     sim_options = {
-        "headless": False,
+        "headless": args.headless,
         "model": model_path,
         "pose": pose_path,
         "model_offset": [0., 0, 11.2e-3],
@@ -138,9 +145,9 @@ def main(args):
         'track': False,
         'moviename': f"{results_path}.mp4",  # Name of the recorded video
         'moviespeed': 0.2,  # Speed of the recorded movie
-        'slow_down': False,
-        'sleep_time': 0.001,
-        'rot_cam': True,  # Set True to rate the camera
+        'slow_down': args.slow_down,
+        'sleep_time': args.sleep_time,
+        'rot_cam': args.rotate_camera,  # Set True to rotate the camera
         'behavior': behavior,
         'ground': 'ball',
         'ball_info': False if behavior == 'grooming' else True,
@@ -159,6 +166,7 @@ def main(args):
         velocity_path=velocity_path,
         starting_time=starting_time,
         fixed_positions=fixed_positions,
+        speed=speed,
     )
     # Run the simulation
     animal.run(optimization=False)

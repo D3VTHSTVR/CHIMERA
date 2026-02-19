@@ -11,6 +11,9 @@ import pybullet as p
 import pybullet_data
 import yaml
 from farms_network.neural_system import NeuralSystem
+
+from NeuroMechFly.control.snn_controller import SNNController
+from NeuroMechFly.control.snn_cpg_network import SpikingCPGNetwork
 from NeuroMechFly.sdf.bullet_load_sdf import load_sdf
 from NeuroMechFly.simulation.bullet_sensors import (
     COMSensor, ContactSensors, JointSensors
@@ -42,6 +45,7 @@ class BulletSimulation(metaclass=abc.ABCMeta):
         self.ground_contacts = kwargs.get('ground_contacts', ())
         self.base_link = kwargs.get('base_link', None)
         self.controller_config = kwargs.get('controller', None)
+        self.controller_type = kwargs.get('controller_type', 'cpg')
         self.pose_file = kwargs.get('pose', None)
         self.muscle_config_file = kwargs.get('muscles', None)
         self.container = container
@@ -420,10 +424,17 @@ class BulletSimulation(metaclass=abc.ABCMeta):
             self.initialize_muscles()
 
         # ADD controller
-        if self.controller_config:
+        if self.controller_type == 'snn':
+            snn_net = SpikingCPGNetwork()
+            self.controller = SNNController(
+                self.container,
+                snn_net,
+                time_step=self.time_step,
+            )
+        elif self.controller_config:
             self.controller = NeuralSystem(
-                config_path=self.controller_config,
-                container=self.container,
+                self.controller_config,
+                self.container,
             )
 
         # Disable default bullet controllers
@@ -491,7 +502,7 @@ class BulletSimulation(metaclass=abc.ABCMeta):
         self.container.initialize()
 
         # Setup the integrator
-        if self.controller_config:
+        if self.controller_config or self.controller_type == 'snn':
             self.controller.setup_integrator()
         if self.use_muscles:
             self.muscles.setup_integrator()
@@ -686,13 +697,16 @@ class BulletSimulation(metaclass=abc.ABCMeta):
 
     @property
     def ball_rotations(self):
-        """ Return the ball angular position. """
-        return tuple(
-            state[0] for state in p.getJointStates(
-                self.plane,
-                np.arange(0, p.getNumJoints(self.plane))
-            )
+        """ Return the ball angular position. With floor, no ball so return (0,). """
+        if self.ground == 'floor':
+            return (0.,)
+        states = p.getJointStates(
+            self.plane,
+            np.arange(0, p.getNumJoints(self.plane))
         )
+        if states is None:
+            return (0.,)
+        return tuple(state[0] for state in states)
 
     @property
     def ball_velocity(self):
@@ -734,8 +748,14 @@ class BulletSimulation(metaclass=abc.ABCMeta):
         imeter = 1. / self.units.meters
         if self.base_link and self.link_id[self.base_link] != -1:
             link_id = self.link_id[self.base_link]
-            return np.array((p.getLinkState(self.animal, link_id))[
-                            0]) * imeter
+            try:
+                return np.array((p.getLinkState(self.animal, link_id))[
+                                0]) * imeter
+            except p.error:
+                # Fallback to base position if link state is unavailable
+                return np.array(
+                    (p.getBasePositionAndOrientation(
+                        self.animal))[0]) * imeter
         else:
             return np.array(
                 (p.getBasePositionAndOrientation(
@@ -1007,7 +1027,7 @@ class BulletSimulation(metaclass=abc.ABCMeta):
         # Update the feedback to controller
         self.feedback_to_controller()
         # Step controller
-        if self.controller_config:
+        if self.controller_config or self.controller_type == 'snn':
             self.controller.step(self.time_step)
         # Update the controller_to_actuator
         self.controller_to_actuator(t)

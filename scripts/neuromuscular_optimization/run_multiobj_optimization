@@ -12,7 +12,6 @@ To make further changes to the simulation, see 'sim_options' on line 114.
 
 import os
 import argparse
-import pkgutil
 from datetime import datetime
 from pathlib import Path
 
@@ -29,8 +28,9 @@ from jmetal.util.termination_criterion import StoppingByEvaluations
 
 from NeuroMechFly.experiments.network_optimization import multiobj_optimization
 from NeuroMechFly.experiments.network_optimization.multiobj_optimization import WriteFullFrontToFileObserver
+from NeuroMechFly.utils.path_utils import get_neuromechfly_path
 
-neuromechfly_path = Path(pkgutil.get_loader("NeuroMechFly").get_filename()).parents[1]
+neuromechfly_path = get_neuromechfly_path()
 
 
 def parse_args():
@@ -126,12 +126,15 @@ if __name__ == "__main__":
     ranking = FastNonDominatedRanking()
     # pareto_fronts = ranking.compute_ranking(front)
 
-    # Plot front
-    plot_front = Plot(
-        title='Pareto front approximation',
-        reference_front=problem.reference_front,
-        axis_labels=problem.obj_labels)
-    plot_front.plot(front, filename=algorithm.get_name())
+    # Plot front (skip if jMetalPy API mismatch, e.g. FloatSolution.number_of_objectives)
+    try:
+        plot_front = Plot(
+            title='Pareto front approximation',
+            reference_front=problem.reference_front,
+            axis_labels=problem.obj_labels)
+        plot_front.plot(front, filename=algorithm.get_name())
+    except AttributeError:
+        pylog.warning('Skipping Pareto front plot (jMetalPy API may have changed)')
 
     # Save results of the latest generation to a .txt file
     print_function_values_to_file(front,  os.path.join(output_dir,'FUN.txt'))

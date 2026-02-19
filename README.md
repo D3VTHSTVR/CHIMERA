@@ -39,7 +39,6 @@ A Gym environment of NeuroMechFly is under development [here](https://github.com
 - [Reproducing the experiments](#reproducing-the-experiments)
 - [Customizing NeuroMechFly](#customizing-neuromechfly)
 - [Miscellaneous](#miscellaneous)
-- [Development Roadmap: Robot Transfer & Spiking Neural Networks](#development-roadmap-robot-transfer--spiking-neural-networks)
 
 
 ## Starting
@@ -258,64 +257,6 @@ plotting.plot_network_activity(
 	
 File containing the raw X-ray microtomography data could be downloaded [here](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/PEOVAV).
 	
----
-
-## Development Roadmap: Robot Transfer & Spiking Neural Networks
-
-This section documents the plan for extending NeuroMechFly toward physical robot deployment and spiking neural network (SNN) controllers.
-
-### Goals
-
-1. **Robot Transfer** – Deploy NeuroMechFly controllers on a physical hexapod (e.g., [Freenove Big Hexapod Robot Kit](https://www.amazon.com/Freenove-Hexapod-Raspberry-Walking-Recognition/dp/B0D1XD1ZV3) for Raspberry Pi).
-2. **Spiking Neural Networks** – Replace or augment the rate-based CPG with spiking neural network controllers.
-
-### Branch Structure
-
-```
-main
-├── feature/robot-transfer              ← umbrella branch for physical robot (current focus)
-│   ├── feature/hexapod-servo-interface   (servo abstraction, Pi control)
-│   ├── feature/hexapod-kinematics        (sim↔robot DoF mapping)
-│   └── feature/hexapod-integration       (full pipeline: sim → robot)
-│
-├── feature/snn-controller              ← umbrella branch for spiking neurology
-│   ├── feature/snn-cpg                  (SNN-based CPG)
-│   ├── feature/snn-motor-layer          (SNN output → motor commands)
-│   └── feature/snn-integration          (SNN + NeuroMechFly)
-│
-└── feature/robot-snn-bridge             ← later: SNN controller on robot
-```
-
-### Task Breakdown
-
-#### Robot Transfer (Path A – Robot First)
-
-| Task | Description | Branch |
-|------|-------------|--------|
-| **Servo interface** | Hardware abstraction layer for Raspberry Pi: PWM/I2C servo control, joint limits, calibration | `feature/hexapod-servo-interface` |
-| **Kinematics mapping** | Map NeuroMechFly's 3 DoFs/leg (Coxa, Femur, Tibia) to hexapod geometry; scale sim angles (rad) to servo (0–180°) | `feature/hexapod-kinematics` |
-| **Replay pipeline** | Stream kinematic replay or CPG output to the robot; same control loop, different actuator (servos vs PyBullet) | `feature/hexapod-integration` |
-
-**Note:** Freenove hexapods typically have 3 servos per leg (18 total). NeuroMechFly's optimized gait uses 3 DoFs per leg, so the mapping is direct.
-
-#### Spiking Neural Networks (Path B – Later)
-
-| Task | Description | Branch |
-|------|-------------|--------|
-| **SNN CPG** | Implement CPG-like rhythm with SNNs (e.g., Brian2, snnTorch, NEST) instead of rate-based oscillators | `feature/snn-cpg` |
-| **Motor layer** | Map SNN outputs (spike rates, phases) to joint targets compatible with NeuroMechFly | `feature/snn-motor-layer` |
-| **Integration** | Replace `NeuralSystem` + GraphML with SNN controller in simulation | `feature/snn-integration` |
-
-**SNN libraries to consider:** Brian2, snnTorch, NEST.
-
-### Sequencing (Robot First)
-
-1. Create `feature/robot-transfer` ✅
-2. Create `feature/hexapod-servo-interface` – implement servo control and basic joint tests
-3. Create `feature/hexapod-kinematics` – sim→robot joint mapping
-4. Merge into `feature/robot-transfer` and run kinematic replay on the robot
-5. Later: add SNN branches and merge `feature/robot-snn-bridge` when ready
-
 ---
 
 ## License
