@@ -406,26 +406,20 @@ class DrosophilaSimulation(BulletSimulation):
         # Slow 2 rad (10 mm/sec), fast 6.8 rad (34 mm/sec)
         # The range is 1.2 < ball rotation per second < 7.2 rad/sec
         total_angular_dist = 1.2 * self.run_time
-        if self.ground == 'floor':
-            movement_metric = self.base_position[0]
-            moving_limit_lower = (
-                (self.time / self.run_time) * total_angular_dist - 0.20
-            ) * self.ball_radius * self.units.meters
-            moving_limit_upper = (
-                (self.time / self.run_time) * 6 * total_angular_dist
-            ) * self.ball_radius * self.units.meters
-        else:
-            ball_angular_position = np.array(self.ball_rotations)[0]
-            movement_metric = np.abs(ball_angular_position) * self.ball_radius * self.units.meters
-            moving_limit_lower = (
-                (self.time / self.run_time) * total_angular_dist - 0.20
-            ) * self.ball_radius * self.units.meters
-            moving_limit_upper = (
-                (self.time / self.run_time) * 6 * total_angular_dist
-            ) * self.ball_radius * self.units.meters
+        ball_angular_position = np.array(self.ball_rotations)[0]
+        moving_limit_lower = ((self.time / self.run_time)
+                              * total_angular_dist) - 0.20
+        moving_limit_upper = ((self.time / self.run_time)
+                              * 6 * total_angular_dist)
+        # print(moving_limit_lower, ball_angular_position, moving_limit_upper)
 
-        self.opti_lava += 1.0 if movement_metric < moving_limit_lower else 0.0
-        self.opti_lava += 1.0 if movement_metric > moving_limit_upper else 0.0
+        self.opti_lava += 1.0 if np.any(
+            np.abs(ball_angular_position) < moving_limit_lower
+        ) or ball_angular_position < 0 else 0.0
+
+        self.opti_lava += 1.0 if np.any(
+            np.abs(ball_angular_position) > moving_limit_upper
+        ) or ball_angular_position < 0 else 0.0
 
     def check_joint_limits(self):
         """ Check if the active exceed joint limits """
