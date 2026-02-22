@@ -1,4 +1,7 @@
-""" Class to run animal model. """
+""" Class to run animal model.
+
+Modified from NeuroMechFly (https://github.com/NeLy-EPFL/NeuroMechFly).
+"""
 
 import abc
 import os

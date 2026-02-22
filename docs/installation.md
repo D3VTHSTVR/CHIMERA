@@ -1,3 +1,5 @@
+> Modified from NeuroMechFly (https://github.com/NeLy-EPFL/NeuroMechFly).
+
 ## Installing NeuroMechFly
 To avoid any conflicts of python packages with your existing python environment, we highly recommend to use virtualenv or conda env. To create a conda environment, follow the following steps: 
 

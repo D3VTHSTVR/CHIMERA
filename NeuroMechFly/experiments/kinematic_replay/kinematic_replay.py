@@ -1,4 +1,7 @@
-""" Drosophila simulation class for kinematic replay for the ball experiments. """
+""" Drosophila simulation class for kinematic replay for the ball experiments.
+
+Modified from NeuroMechFly (https://github.com/NeLy-EPFL/NeuroMechFly).
+"""
 
 import numpy as np
 import pandas as pd

@@ -1,4 +1,7 @@
-""" Drosophila Evolution. """
+""" Drosophila Evolution.
+
+Modified from NeuroMechFly (https://github.com/NeLy-EPFL/NeuroMechFly).
+"""
 
 import logging
 import os
