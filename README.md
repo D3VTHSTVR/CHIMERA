@@ -3,6 +3,8 @@
 > 
 > **This GitHub repository contains documentation for legacy code related to [Lobato-Rios et al, Nature Methods, 2022](https://www.nature.com/articles/s41592-022-01466-7). NeuroMechFly has since been updated, and this repository is no longer actively maintained. For most up-to-date information, please visit [neuromechfly.org](https://neuromechfly.org/).**
 
+> **CHIMERA** – Modified derivative of [NeuroMechFly](https://github.com/NeLy-EPFL/NeuroMechFly) (Apache 2.0).
+
 # NeuroMechFly
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Version](https://badge.fury.io/gh/tterb%2FHyde.svg)](https://badge.fury.io/gh/tterb%2FHyde)

@@ -9,6 +9,8 @@ To plot the population and gait diagram of the solution, append '--plot' to the 
 To log the penalties separately from the objective functions, append --log_penalties to the command you run.
 
 To make further changes to the simulation, see 'sim_options' on line 112.
+
+Modified from NeuroMechFly (https://github.com/NeLy-EPFL/NeuroMechFly).
 """
 
 import argparse

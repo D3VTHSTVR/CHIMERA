@@ -6,6 +6,8 @@ Default behavior is walking, to change it to grooming, add '-b grooming' to the 
 To record the simulation, append '--record' to the command you run.
 
 To make further changes to the simulation, see 'sim_options' on line 127.
+
+Modified from NeuroMechFly (https://github.com/NeLy-EPFL/NeuroMechFly).
 """
 import os
 import glob

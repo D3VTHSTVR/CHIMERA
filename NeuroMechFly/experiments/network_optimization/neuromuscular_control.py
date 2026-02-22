@@ -1,4 +1,7 @@
-""" Drosophila Simulation for visualization of optimization results."""
+""" Drosophila Simulation for visualization of optimization results.
+
+Modified from NeuroMechFly (https://github.com/NeLy-EPFL/NeuroMechFly).
+"""
 
 import farms_pylog as pylog
 import numpy as np
