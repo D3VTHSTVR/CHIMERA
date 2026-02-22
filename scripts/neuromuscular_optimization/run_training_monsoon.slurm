@@ -5,7 +5,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=32G
-#SBATCH --partition=standard
+#SBATCH --partition=core
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=vr527@nau.edu
 
