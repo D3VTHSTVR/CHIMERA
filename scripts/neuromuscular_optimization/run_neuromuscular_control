@@ -82,6 +82,34 @@ def main(args):
         for segment in tuple(f"Tarsus{i}" for i in range(1, 6))
     ]
 
+    #: Self-collisions to prevent legs passing through body/other legs
+    leg_segments = ['Tibia'] + [f'Tarsus{i}' for i in range(1, 6)]
+    legs = {
+        'LF': [f'LF{s}' for s in leg_segments],
+        'LM': [f'LM{s}' for s in leg_segments],
+        'LH': [f'LH{s}' for s in leg_segments],
+        'RF': [f'RF{s}' for s in leg_segments],
+        'RM': [f'RM{s}' for s in leg_segments],
+        'RH': [f'RH{s}' for s in leg_segments],
+    }
+    body_segments = [f'{s}{b}' for s in ('L', 'R') for b in ('Eye', 'Antenna')]
+    self_collision = []
+    # Opposing legs (LF-RF, LM-RM, LH-RH)
+    for left, right in [('LF', 'RF'), ('LM', 'RM'), ('LH', 'RH')]:
+        for link0 in legs[left]:
+            for link1 in legs[right]:
+                self_collision.append([link0, link1])
+    # Adjacent legs on same side (LF-LM, LM-LH, RF-RM, RM-RH)
+    for left_pair, right_pair in [('LF', 'LM'), ('LM', 'LH'), ('RF', 'RM'), ('RM', 'RH')]:
+        for link0 in legs[left_pair]:
+            for link1 in legs[right_pair]:
+                self_collision.append([link0, link1])
+    # Front legs with eyes/antennae
+    for link0 in legs['LF'] + legs['RF']:
+        for link1 in body_segments:
+            if link0[0] == link1[0]:
+                self_collision.append([link0, link1])
+
     #: Setting up the paths for the SDF and POSE files
     model_path = neuromechfly_path.joinpath(
         "data/design/sdf/neuromechfly_locomotion_optimization.sdf"
@@ -123,7 +151,7 @@ def main(args):
         "base_link": 'Thorax',
         "controller": str(controller_path),
         "ground_contacts": ground_contact,
-        # 'self_collisions': self_collision,
+        "self_collisions": self_collision,
         "draw_collisions": True,  # : Set True to change the color of colliding segments
         "record": args.record,  # : Set True to record the simulation
         "solver_iterations": args.solver_iterations,

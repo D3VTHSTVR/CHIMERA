@@ -15,8 +15,6 @@ import pybullet_data
 import yaml
 from farms_network.neural_system import NeuralSystem
 
-from NeuroMechFly.control.snn_controller import SNNController
-from NeuroMechFly.control.snn_cpg_network import SpikingCPGNetwork
 from NeuroMechFly.sdf.bullet_load_sdf import load_sdf
 from NeuroMechFly.simulation.bullet_sensors import (
     COMSensor, ContactSensors, JointSensors
@@ -428,6 +426,8 @@ class BulletSimulation(metaclass=abc.ABCMeta):
 
         # ADD controller
         if self.controller_type == 'snn':
+            from NeuroMechFly.control.snn_cpg_network import SpikingCPGNetwork
+            from NeuroMechFly.control.snn_controller import SNNController
             snn_net = SpikingCPGNetwork()
             self.controller = SNNController(
                 self.container,

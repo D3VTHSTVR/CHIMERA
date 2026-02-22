@@ -285,6 +285,31 @@ class DrosophilaEvolution(FloatProblem):
             for segment in tuple(f"Tarsus{i}" for i in range(1, 6))
         )
 
+        # Self-collisions to prevent legs passing through body/other legs
+        leg_segments = ['Tibia'] + [f'Tarsus{i}' for i in range(1, 6)]
+        legs = {
+            'LF': [f'LF{s}' for s in leg_segments],
+            'LM': [f'LM{s}' for s in leg_segments],
+            'LH': [f'LH{s}' for s in leg_segments],
+            'RF': [f'RF{s}' for s in leg_segments],
+            'RM': [f'RM{s}' for s in leg_segments],
+            'RH': [f'RH{s}' for s in leg_segments],
+        }
+        body_segments = [f'{s}{b}' for s in ('L', 'R') for b in ('Eye', 'Antenna')]
+        self_collisions = []
+        for left, right in [('LF', 'RF'), ('LM', 'RM'), ('LH', 'RH')]:
+            for link0 in legs[left]:
+                for link1 in legs[right]:
+                    self_collisions.append([link0, link1])
+        for left_pair, right_pair in [('LF', 'LM'), ('LM', 'LH'), ('RF', 'RM'), ('RM', 'RH')]:
+            for link0 in legs[left_pair]:
+                for link1 in legs[right_pair]:
+                    self_collisions.append([link0, link1])
+        for link0 in legs['LF'] + legs['RF']:
+            for link1 in body_segments:
+                if link0[0] == link1[0]:
+                    self_collisions.append([link0, link1])
+
         # Set the ball specs based on your experimental setup
         ball_specs = {
             'ball_mass': 54.6e-6,
@@ -306,6 +331,7 @@ class DrosophilaEvolution(FloatProblem):
             "controller": str(controller_path) if controller_type == 'cpg' else None,
             "base_link": 'Thorax',
             "ground_contacts": ground_contacts,
+            "self_collisions": self_collisions,
             "camera_distance": 4.5,
             "track": False,
             "globalCFM": 5.,
