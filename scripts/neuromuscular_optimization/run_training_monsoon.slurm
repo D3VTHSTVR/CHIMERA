@@ -16,14 +16,17 @@
 set -e
 cd ~/NeuroMechFly
 
-# Pull latest monsoon branch
-git fetch origin
-git checkout monsoon
-git pull origin monsoon
-
-# Activate conda env (adjust if your env name differs)
+# Load conda (required on Monsoon - conda not in default PATH for batch jobs)
+module load mambaforge 2>/dev/null || module load anaconda3 2>/dev/null || true
 source $(conda info --base)/etc/profile.d/conda.sh
-conda activate neuromechfly38
+
+# Activate env (override with sbatch --export=CONDA_ENV=your_env,...)
+CONDA_ENV=${CONDA_ENV:-neuromechfly38}
+conda activate $CONDA_ENV || {
+  echo "ERROR: Conda env '$CONDA_ENV' not found. Run 'conda env list' on Monsoon."
+  echo "Then: sbatch --export=CONDA_ENV=your_env_name run_training_monsoon.slurm"
+  exit 1
+}
 
 # Training params (override via sbatch --export=POP=100,GEN=60)
 POP=${POP:-100}
