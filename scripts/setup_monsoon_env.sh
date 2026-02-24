@@ -1,6 +1,10 @@
 #!/bin/bash
 # One-time setup for NeuroMechFly on Monsoon HPC
 # Run interactively: bash scripts/setup_monsoon_env.sh
+#
+# If a previous run failed (e.g. disk quota), remove env and retry:
+#   conda env remove -n neuromechfly38 -y
+#   bash scripts/setup_monsoon_env.sh
 
 set -e
 module load mambaforge
@@ -21,6 +25,10 @@ cd ~/NeuroMechFly
 pip install git+https://gitlab.com/FARMSIM/farms_container.git
 conda install -y pybullet pytables matplotlib networkx scipy pillow pyyaml trimesh
 pip install treelib jmetalpy scikit-posthocs "df3dpostprocessing==1.1.0"
+
+# CPU-only PyTorch (~200MB) to avoid disk quota; CUDA build is ~2.5GB
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+pip install snntorch
 
 # NeuroMechFly (farms_network etc. from setup.py install_requires)
 pip install -e .
