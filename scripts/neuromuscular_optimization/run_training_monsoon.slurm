@@ -54,7 +54,8 @@ if [ $CONDA_LOADED -eq 0 ]; then
 fi
 
 # Activate env (override with sbatch --export=CONDA_ENV=your_env,...)
-CONDA_ENV=${CONDA_ENV:-neuromechfly38}
+# On Monsoon, only 'base' exists by default. Create neuromechfly38 first for isolation.
+CONDA_ENV=${CONDA_ENV:-base}
 echo "=== Activating $CONDA_ENV ==="
 conda activate $CONDA_ENV || {
   echo "ERROR: Conda env '$CONDA_ENV' not found."
@@ -63,6 +64,12 @@ conda activate $CONDA_ENV || {
   exit 1
 }
 echo "=== Python: $(which python) ==="
+
+# Install NeuroMechFly if not present (needed when using base env)
+python -c "import NeuroMechFly" 2>/dev/null || {
+  echo "=== Installing NeuroMechFly (pip install -e .) ==="
+  pip install -e . --quiet
+}
 
 # Training params (override via sbatch --export=POP=100,GEN=60)
 POP=${POP:-100}
