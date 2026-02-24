@@ -93,14 +93,16 @@ EXIT_CODE=$?
 echo "Finished at $(date) with exit code $EXIT_CODE"
 
 if [ $EXIT_CODE -eq 0 ]; then
-  # Record completion and push
+  # Record completion, add results to git, and push to monsoon for pull on local devices
   RUN_DIR=$(ls -td scripts/neuromuscular_optimization/optimization_results/run_Drosophila_* 2>/dev/null | head -1)
   if [ -n "$RUN_DIR" ]; then
     echo "Successful run: $RUN_DIR" >> scripts/neuromuscular_optimization/TRAINING_LOG.txt
     echo "  pop=$POP gen=$GEN ground=$GROUND completed $(date)" >> scripts/neuromuscular_optimization/TRAINING_LOG.txt
-    git add scripts/neuromuscular_optimization/TRAINING_LOG.txt
+    git add "$RUN_DIR" scripts/neuromuscular_optimization/TRAINING_LOG.txt
+    git status
     git commit -m "Training completed: pop=$POP gen=$GEN $GROUND ($(date +%Y-%m-%d))" || true
     git push origin monsoon || echo "Push failed - run 'git push origin monsoon' manually"
+    echo "=== Pushed to origin monsoon. Pull on your device: git pull origin monsoon ==="
   fi
 fi
 
