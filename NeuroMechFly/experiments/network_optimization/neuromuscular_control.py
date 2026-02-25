@@ -1,8 +1,18 @@
-""" Drosophila Simulation for visualization of optimization results.
+"""Drosophila neuromuscular simulation for gait optimization.
+
+Provides DrosophilaSimulation, which extends BulletSimulation with:
+- Ekeberg muscle model (spring-damper antagonist pairs)
+- CPG or SNN controller integration
+- Ball treadmill or floor locomotion
+- Optimization metrics: distance, stability, duty factor, joint limits, velocity
+
+Used by run_neuromuscular_control (replay) and run_multiobj_optimization
+(evaluation). Supports both ball (fixed support) and floor (free support) SDFs.
 
 Modified from NeuroMechFly (https://github.com/NeLy-EPFL/NeuroMechFly).
 """
 
+import yaml
 import farms_pylog as pylog
 import numpy as np
 import pybullet as p
@@ -63,6 +73,26 @@ class DrosophilaSimulation(BulletSimulation):
             pos = joint.split('_')[1][1]
             if (pos in ('M', 'H')) and ('Coxa' in joint):
                 self.actuated_joints[j] = joint.replace('Coxa', 'Coxa_roll')
+
+        # Load fixed joint targets for body joints (hold pose when body is revolute)
+        # On floor, exclude support joints so the fly can move freely
+        self.fixed_joint_targets = {}
+        if getattr(self, 'fixed_joints_file', None):
+            try:
+                with open(self.fixed_joints_file) as f:
+                    data = yaml.safe_load(f)
+                    joints_data = data.get('joints', {})
+                    for joint in self.joint_id:
+                        if joint not in self.actuated_joints:
+                            if (getattr(self, 'ground', 'ball') == 'floor' and
+                                    ('prismatic_support' in joint or 'revolute_support' in joint)):
+                                continue  # Let support joints move freely on floor
+                            val = joints_data.get(joint, 0)
+                            self.fixed_joint_targets[joint] = np.deg2rad(
+                                float(val) if val is not None else 0
+                            )
+            except (FileNotFoundError, TypeError):
+                pass
 
         self.num_oscillators = self.controller.graph.number_of_nodes()
         self.active_muscles = {}
@@ -170,6 +200,19 @@ class DrosophilaSimulation(BulletSimulation):
         """ Implementation of abstract method. """
         # Update muscles
         self.muscle_controller()
+
+        # Hold body joints at fixed pose (for revolute body joints)
+        if self.fixed_joint_targets:
+            for joint, target in self.fixed_joint_targets.items():
+                if joint in self.joint_id:
+                    p.setJointMotorControl2(
+                        self.animal,
+                        self.joint_id[joint],
+                        controlMode=p.POSITION_CONTROL,
+                        targetPosition=target,
+                        positionGain=10.0,
+                        velocityGain=1.0,
+                    )
 
         # Change the color of the colliding body segments
         if self.draw_collisions:
@@ -411,21 +454,33 @@ class DrosophilaSimulation(BulletSimulation):
         """ State of lava approaching the model. """
         # Slow 2 rad (10 mm/sec), fast 6.8 rad (34 mm/sec)
         # The range is 1.2 < ball rotation per second < 7.2 rad/sec
+        ball_radius = 5e-3  # 5 mm
         total_angular_dist = 1.2 * self.run_time
-        ball_angular_position = np.array(self.ball_rotations)[0]
-        moving_limit_lower = ((self.time / self.run_time)
-                              * total_angular_dist) - 0.20
-        moving_limit_upper = ((self.time / self.run_time)
-                              * 6 * total_angular_dist)
-        # print(moving_limit_lower, ball_angular_position, moving_limit_upper)
-
-        self.opti_lava += 1.0 if np.any(
-            np.abs(ball_angular_position) < moving_limit_lower
-        ) or ball_angular_position < 0 else 0.0
-
-        self.opti_lava += 1.0 if np.any(
-            np.abs(ball_angular_position) > moving_limit_upper
-        ) or ball_angular_position < 0 else 0.0
+        if self.ground == 'floor':
+            forward_position = np.array(self.base_position)[0]
+            total_linear_dist = total_angular_dist * ball_radius
+            moving_limit_lower = ((self.time / self.run_time)
+                                  * total_linear_dist) - 0.20 * ball_radius
+            moving_limit_upper = ((self.time / self.run_time)
+                                  * 6 * total_linear_dist)
+            self.opti_lava += 1.0 if (
+                forward_position < moving_limit_lower or forward_position < 0
+            ) else 0.0
+            self.opti_lava += 1.0 if (
+                forward_position > moving_limit_upper or forward_position < 0
+            ) else 0.0
+        else:
+            ball_angular_position = np.array(self.ball_rotations)[0]
+            moving_limit_lower = ((self.time / self.run_time)
+                                  * total_angular_dist) - 0.20
+            moving_limit_upper = ((self.time / self.run_time)
+                                  * 6 * total_angular_dist)
+            self.opti_lava += 1.0 if np.any(
+                np.abs(ball_angular_position) < moving_limit_lower
+            ) or ball_angular_position < 0 else 0.0
+            self.opti_lava += 1.0 if np.any(
+                np.abs(ball_angular_position) > moving_limit_upper
+            ) or ball_angular_position < 0 else 0.0
 
     def check_joint_limits(self):
         """ Check if the active exceed joint limits """

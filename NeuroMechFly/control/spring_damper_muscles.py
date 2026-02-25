@@ -1,4 +1,12 @@
-""" Spring damper muscles. """
+"""Ekeberg-style spring-damper antagonist muscle model.
+
+Converts motor neuron activity (flexor/extensor) into joint torques via:
+- Active torque: α × (flexor_act − extensor_act) + stiffness
+- Passive torque: stiffness + damping
+- Activation: amp × (1 + sin(phase))
+
+Parameters (α, β, γ, δ, rest_pos) are optimized per joint per leg.
+"""
 from dataclasses import dataclass
 import numpy as np
 

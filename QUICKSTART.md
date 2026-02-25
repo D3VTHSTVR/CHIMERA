@@ -65,6 +65,13 @@ Activate the env first: `conda activate neuromechfly` (or your env name).
   `run_neuromuscular_control --gui -p optimization_results/run_Drosophila_example/ -g 59 --plot`
 - **Run optimization from scratch (slow, many generations):**  
   `run_multiobj_optimization`
+- **Short floor run:**  
+  `run_multiobj_optimization --pop 10 --gen 5 --process 4 --ground floor`
+- **Two-phase training (recommended for floor):**  
+  1. Phase 1 – stability:  
+     `run_stability_optimization --pop 20 --gen 15 --process 4 --ground floor`  
+  2. Phase 2 – walking (warm start from Phase 1):  
+     `run_multiobj_optimization --pop 20 --gen 50 --process 4 --ground floor --warm-start optimization_results/run_DrosophilaStability_var_63_obj_2_pop_20_gen_15_YYMMDD_HHMMSS`
 - **Analyze optimization:**  
   `run_optimization_analysis`
 

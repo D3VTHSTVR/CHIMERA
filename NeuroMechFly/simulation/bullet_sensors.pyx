@@ -132,6 +132,8 @@ cdef class ContactSensors:
             fy_tot = 0.0
             fz_tot = 0.0
             contacts = p.getContactPoints(model_A, model_B, link_A, link_B)
+            if contacts is None:
+                contacts = ()
             for contact in contacts:
                 # Normal reaction
                 normal_force_vec = tuple_to_struct(contact[7])

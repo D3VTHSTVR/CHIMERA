@@ -83,6 +83,7 @@ setuptools.setup(
         'scripts/kinematic_replay/run_kinematic_replay_ground',
         'scripts/kinematic_replay/run_morphology_experiment',
         'scripts/neuromuscular_optimization/run_multiobj_optimization',
+        'scripts/neuromuscular_optimization/run_stability_optimization',
         'scripts/neuromuscular_optimization/run_neuromuscular_control',
         'scripts/neuromuscular_optimization/run_optimization_analysis',
         'scripts/sensitivity_analysis/run_sensitivity_analysis',

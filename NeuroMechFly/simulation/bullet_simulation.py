@@ -1,4 +1,14 @@
-""" Class to run animal model.
+"""PyBullet simulation core for NeuroMechFly.
+
+BulletSimulation provides:
+- SDF model loading (ball or floor)
+- Physics engine setup (gravity, friction, solver)
+- Joint sensors, contact sensors, COM
+- Camera tracking, recording
+- Ground contacts and self-collision configuration
+
+Subclasses (e.g. DrosophilaSimulation) add muscle control and optimization metrics.
+Supports controller_type: 'cpg' or 'snn'.
 
 Modified from NeuroMechFly (https://github.com/NeLy-EPFL/NeuroMechFly).
 """
@@ -48,6 +58,7 @@ class BulletSimulation(metaclass=abc.ABCMeta):
         self.controller_config = kwargs.get('controller', None)
         self.controller_type = kwargs.get('controller_type', 'cpg')
         self.pose_file = kwargs.get('pose', None)
+        self.fixed_joints_file = kwargs.get('fixed_joints', None)
         self.muscle_config_file = kwargs.get('muscles', None)
         self.container = container
         self.camera_distance = kwargs.get('camera_distance', 0.1)
@@ -334,15 +345,30 @@ class BulletSimulation(metaclass=abc.ABCMeta):
                     enableCollision=1
                 )
 
-        # Disable/Enable selected self-collisions
+        # Disable/Enable selected self-collisions (skip pairs with missing links)
+        valid_self_collisions = []
         for (link0, link1) in self.self_collisions:
-            p.setCollisionFilterPair(
-                bodyUniqueIdA=self.animal,
-                bodyUniqueIdB=self.animal,
-                linkIndexA=self.link_id[link0],
-                linkIndexB=self.link_id[link1],
-                enableCollision=1,
-            )
+            if link0 in self.link_id and link1 in self.link_id:
+                p.setCollisionFilterPair(
+                    bodyUniqueIdA=self.animal,
+                    bodyUniqueIdB=self.animal,
+                    linkIndexA=self.link_id[link0],
+                    linkIndexB=self.link_id[link1],
+                    enableCollision=1,
+                )
+                valid_self_collisions.append((link0, link1))
+
+        # Reduce collision margin for small-scale fly (mm units); improves contact
+        for link_name, link_idx in self.link_id.items():
+            if link_idx >= 0:  # skip base
+                try:
+                    p.changeDynamics(
+                        self.animal, link_idx,
+                        contactStiffness=5000,
+                        contactDamping=100,
+                    )
+                except p.error:
+                    pass
 
         # ADD container columns
         # ADD ground reaction forces and friction forces
@@ -365,9 +391,9 @@ class BulletSimulation(metaclass=abc.ABCMeta):
                 self.sim_data.contact_lateral_force.add_parameter(
                     contact + '_' + axis)
 
-        # ADD self collision forces
+        # ADD self collision forces (use valid pairs only)
         _collision_sensor_ids = []
-        for link0, link1 in self.self_collisions:
+        for link0, link1 in valid_self_collisions:
             _collision_sensor_ids.append(
                 (
                     self.animal, self.animal, self.link_id[link0],
@@ -526,25 +552,36 @@ class BulletSimulation(metaclass=abc.ABCMeta):
     def initialize_position(self, pose_file=None):
         """Initialize the pose of the animal.
         Parameters:
-        pose_file : <selftr>
+        pose_file : <str>
              File path to the pose data
         """
+        pose_data = {}
         if pose_file:
             try:
                 with open(pose_file) as stream:
                     data = yaml.load(stream, Loader=yaml.SafeLoader)
-                    data = {k.lower(): v for k, v in data.items()}
+                    pose_data = data.get('joints', data.get('Joints', {}))
+                    if not pose_data and 'joints' in data:
+                        pose_data = data['joints']
             except FileNotFoundError:
                 print('Pose file {} not found'.format(pose_file))
-                return
+        if getattr(self, 'fixed_joints_file', None):
+            try:
+                with open(self.fixed_joints_file) as stream:
+                    fixed = yaml.safe_load(stream)
+                    fixed_joints = fixed.get('joints', {})
+                    for j, v in fixed_joints.items():
+                        if j not in pose_data:
+                            pose_data[j] = v
+            except (FileNotFoundError, TypeError):
+                pass
+        if pose_data:
             for joint, _id in self.joint_id.items():
-                _pose = np.deg2rad(data['joints'].get(joint, 0))
+                _pose = np.deg2rad(float(pose_data.get(joint, 0) or 0))
                 p.resetJointState(
                     self.animal, _id,
                     targetValue=_pose
                 )
-        else:
-            return None
 
     def get_current_contacts(self):
         """ Check for ground contact """

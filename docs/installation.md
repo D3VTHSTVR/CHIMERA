@@ -1,6 +1,8 @@
 > Modified from NeuroMechFly (https://github.com/NeLy-EPFL/NeuroMechFly).
 
 ## Installing NeuroMechFly
+
+**Prerequisites:** Git, conda (or virtualenv), and for Apple Silicon: arm64 environment. See [README.md](../README.md) for project overview and [QUICKSTART.md](../QUICKSTART.md) for common commands.
 To avoid any conflicts of python packages with your existing python environment, we highly recommend to use virtualenv or conda env. To create a conda environment, follow the following steps: 
 
 **First, make sure that you have git-lfs (large file storage) installed on your local machine. Otherwise, please refer to this [link](https://github.com/git-lfs/git-lfs) to learn more about how to install the Git LFS.**

@@ -27,7 +27,10 @@ from jmetal.util.solution import (print_function_values_to_file,
 from jmetal.util.termination_criterion import StoppingByEvaluations
 
 from NeuroMechFly.experiments.network_optimization import multiobj_optimization
-from NeuroMechFly.experiments.network_optimization.multiobj_optimization import WriteFullFrontToFileObserver
+from NeuroMechFly.experiments.network_optimization.multiobj_optimization import (
+    WriteFullFrontToFileObserver,
+    load_warm_start_solutions,
+)
 from NeuroMechFly.utils.path_utils import get_neuromechfly_path
 
 neuromechfly_path = get_neuromechfly_path()
@@ -51,6 +54,14 @@ def parse_args():
         default='ball',
         help='Ground type: ball (default) or floor',
     )
+    parser.add_argument(
+        '--warm-start',
+        type=str,
+        default=None,
+        metavar='PATH',
+        help='Path to Phase 1 results (e.g. optimization_results/run_DrosophilaStability_...) '
+             'to seed initial population. Best solutions by stability are used.',
+    )
     parser.set_defaults(gui=False, profile=False)
 
     return parser.parse_args()
@@ -65,6 +76,15 @@ if __name__ == "__main__":
     problem = multiobj_optimization.DrosophilaEvolution()
     problem.controller_type = args.controller
     problem.ground = args.ground
+
+    if args.warm_start:
+        warm_solutions = load_warm_start_solutions(
+            args.warm_start,
+            n_solutions=n_pop,
+            sort_by='stability',
+        )
+        problem._initial_solutions = warm_solutions
+        pylog.info(f'Warm start: loaded {len(warm_solutions)} solutions from {args.warm_start}')
 
     # Algorithm
     algorithm = NSGAII(

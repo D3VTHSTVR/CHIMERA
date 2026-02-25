@@ -1,0 +1,141 @@
+#!/usr/bin/env python
+"""
+Phase 1: Stability-only optimization.
+
+Optimizes primarily for stability (low joint limits, velocity, duty factor penalties)
+with a small distance weight to avoid the "stand still" optimum. Use the results
+as warm start for run_multiobj_optimization (Phase 2) with --warm-start.
+
+Example:
+  run_stability_optimization --pop 20 --gen 15 --process 4 --ground floor
+
+Then for Phase 2:
+  run_multiobj_optimization --pop 20 --gen 50 --process 4 --ground floor \\
+    --warm-start optimization_results/run_DrosophilaStability_var_63_obj_2_pop_20_gen_15_YYMMDD_HHMMSS
+"""
+
+import os
+import argparse
+from datetime import datetime
+from pathlib import Path
+
+import farms_pylog as pylog
+from jmetal.algorithm.multiobjective.nsgaii import NSGAII
+from jmetal.lab.visualization import Plot
+from jmetal.operator import PolynomialMutation, SBXCrossover
+from jmetal.util.evaluator import MultiprocessEvaluator
+from jmetal.util.observer import ProgressBarObserver, VisualizerObserver
+from jmetal.util.ranking import FastNonDominatedRanking
+from jmetal.util.solution import (print_function_values_to_file,
+                                  print_variables_to_file)
+from jmetal.util.termination_criterion import StoppingByEvaluations
+
+from NeuroMechFly.experiments.network_optimization import multiobj_optimization
+from NeuroMechFly.experiments.network_optimization.multiobj_optimization import (
+    WriteFullFrontToFileObserver,
+)
+from NeuroMechFly.utils.path_utils import get_neuromechfly_path
+
+neuromechfly_path = get_neuromechfly_path()
+
+
+def parse_args():
+    """Parse arguments from command line."""
+    parser = argparse.ArgumentParser(
+        description='Phase 1: Stability-only optimization for warm start'
+    )
+    parser.add_argument('-g', '--gen', type=int, default=15)
+    parser.add_argument('-p', '--pop', type=int, default=20)
+    parser.add_argument('-n', '--process', type=int, default=4)
+    parser.add_argument(
+        '--controller',
+        choices=['cpg', 'snn'],
+        default='cpg',
+        help='Controller type: cpg (default) or snn',
+    )
+    parser.add_argument(
+        '--ground',
+        choices=['ball', 'floor'],
+        default='floor',
+        help='Ground type: floor (default) or ball',
+    )
+    parser.set_defaults(gui=False, profile=False)
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    args = parse_args()
+    n_pop = args.pop
+    n_gen = args.gen
+    max_evaluations = n_pop * n_gen
+
+    problem = multiobj_optimization.DrosophilaEvolution()
+    problem.controller_type = args.controller
+    problem.ground = args.ground
+    problem.stability_only = True
+
+    algorithm = NSGAII(
+        problem=problem,
+        population_size=n_pop,
+        offspring_population_size=n_pop,
+        mutation=PolynomialMutation(
+            probability=1.0 / problem.number_of_variables,
+            distribution_index=20,
+        ),
+        crossover=SBXCrossover(
+            probability=0.9,
+            distribution_index=15,
+        ),
+        population_evaluator=MultiprocessEvaluator(args.process),
+        termination_criterion=StoppingByEvaluations(max_evaluations=max_evaluations),
+    )
+
+    output_dir = os.path.join(
+        neuromechfly_path,
+        'scripts/neuromuscular_optimization',
+    )
+    result_path = 'optimization_results/run_DrosophilaStability_var_{}_obj_{}_pop_{}_gen_{}_{}'.format(
+        problem.number_of_variables,
+        problem.number_of_objectives,
+        n_pop,
+        n_gen,
+        datetime.now().strftime('%y%m%d_%H%M%S'),
+    )
+
+    algorithm.observable.register(
+        observer=WriteFullFrontToFileObserver(
+            output_directory=os.path.join(output_dir, result_path),
+        )
+    )
+    algorithm.observable.register(
+        observer=ProgressBarObserver(max=max_evaluations)
+    )
+    algorithm.observable.register(
+        observer=VisualizerObserver(reference_front=problem.reference_front)
+    )
+
+    algorithm.run()
+
+    front = algorithm.result()
+    try:
+        plot_front = Plot(
+            title='Stability optimization (Phase 1)',
+            reference_front=problem.reference_front,
+            axis_labels=problem.obj_labels,
+        )
+        plot_front.plot(front, filename=algorithm.get_name())
+    except AttributeError:
+        pylog.warning('Skipping Pareto front plot (jMetalPy API may have changed)')
+
+    result_dir = os.path.join(output_dir, result_path)
+    print_function_values_to_file(front, os.path.join(result_dir, 'FUN.txt'))
+    print_variables_to_file(front, os.path.join(result_dir, 'VAR.txt'))
+
+    config_src = os.path.join(output_dir, 'optimization_results/CONFIG.yaml')
+    if Path(config_src).exists():
+        Path(config_src).rename(os.path.join(result_dir, 'CONFIG.yaml'))
+
+    print('Phase 1 (stability) complete.')
+    print('Result path:', result_path)
+    print('Use --warm-start', result_path, 'with run_multiobj_optimization for Phase 2.')
+    print('Computing time:', str(algorithm.total_computing_time * 1 / 60), 'min')

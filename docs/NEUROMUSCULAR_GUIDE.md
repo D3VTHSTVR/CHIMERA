@@ -114,10 +114,12 @@ run_neuromuscular_control [OPTIONS]
 | `--log_penalties` | | flag | False | Write penalties to PENALTIES.<gen>. |
 | `--profile` | | flag | False | Profile performance. |
 | `--solver_iterations` | | int | 100 | PyBullet physics solver iterations per step. |
+| `--ground` | | str | `ball` | `ball` or `floor`. Must match the optimization run. |
 
 **Examples:**
 ```bash
 run_neuromuscular_control --gui -p optimization_results/run_Drosophila_example/ -g 59
+run_neuromuscular_control --gui -p optimization_results/run_DrosophilaEvolution_var_63_obj_2_pop_10_gen_5_YYMMDD_HHMMSS -g 1 --ground floor
 run_neuromuscular_control --gui -p optimization_results/run_Drosophila_example/ -g 59 -s fastest --record
 run_neuromuscular_control --gui -p optimization_results/run_Drosophila_example/ -g 59 --plot
 ```
@@ -140,6 +142,9 @@ run_multiobj_optimization [OPTIONS]
 | `--pop` | `-p` | int | 200 | Population size per generation. |
 | `--gen` | `-g` | int | 60 | Number of generations. |
 | `--process` | `-n` | int | 8 | Number of parallel workers. |
+| `--ground` | | str | `ball` | `ball` or `floor`. Floor uses free support joints. |
+| `--controller` | | str | `cpg` | `cpg` or `snn`. |
+| `--warm-start` | | str | None | Path to Phase 1 results to seed initial population. |
 
 **Total evaluations:** `pop × gen` (e.g. 200×60 = 12,000).
 
@@ -147,9 +152,18 @@ run_multiobj_optimization [OPTIONS]
 ```bash
 run_multiobj_optimization --pop 10 --gen 5 --process 4
 run_multiobj_optimization --pop 200 --gen 60 --process 8
+run_multiobj_optimization --pop 20 --gen 50 --ground floor --warm-start optimization_results/run_DrosophilaStability_var_63_obj_2_pop_20_gen_15_YYMMDD_HHMMSS
 ```
 
-**Output:** `optimization_results/run_Drosophila_var_63_obj_2_pop_<pop>_gen_<gen>_<timestamp>/`
+**Output:** `optimization_results/run_DrosophilaEvolution_var_63_obj_2_pop_<pop>_gen_<gen>_<timestamp>/`
+
+---
+
+### `run_stability_optimization`
+
+Phase 1: Stability-only optimization. Use results as warm start for `run_multiobj_optimization`. Defaults: `--pop 20`, `--gen 15`, `--ground floor`.
+
+**Output:** `optimization_results/run_DrosophilaStability_var_63_obj_2_pop_<pop>_gen_<gen>_<timestamp>/`
 
 ---
 

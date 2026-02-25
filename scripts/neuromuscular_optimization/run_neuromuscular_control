@@ -63,6 +63,12 @@ def parse_args():
         default='cpg',
         help='Controller type: cpg (default) or snn (spiking neural network)',
     )
+    parser.add_argument(
+        '--ground',
+        choices=['ball', 'floor'],
+        default='floor',
+        help='Ground type: floor (default) or ball',
+    )
     parser.set_defaults(gui=False, profile=False)
 
     return parser.parse_args()
@@ -83,7 +89,7 @@ def main(args):
     ]
 
     #: Self-collisions to prevent legs passing through body/other legs
-    leg_segments = ['Tibia'] + [f'Tarsus{i}' for i in range(1, 6)]
+    leg_segments = ['Coxa', 'Femur', 'Tibia'] + [f'Tarsus{i}' for i in range(1, 6)]
     legs = {
         'LF': [f'LF{s}' for s in leg_segments],
         'LM': [f'LM{s}' for s in leg_segments],
@@ -92,30 +98,39 @@ def main(args):
         'RM': [f'RM{s}' for s in leg_segments],
         'RH': [f'RH{s}' for s in leg_segments],
     }
-    body_segments = [f'{s}{b}' for s in ('L', 'R') for b in ('Eye', 'Antenna')]
+    body_segments = [
+        'Thorax', 'Head', 'A1A2', 'A3', 'A4', 'A5', 'A6',
+        'Haustellum', 'Rostrum', 'LEye', 'REye', 'LAntenna', 'RAntenna',
+        'LHaltere', 'RHaltere', 'LWing', 'RWing',
+    ]
     self_collision = []
-    # Opposing legs (LF-RF, LM-RM, LH-RH)
-    for left, right in [('LF', 'RF'), ('LM', 'RM'), ('LH', 'RH')]:
-        for link0 in legs[left]:
-            for link1 in legs[right]:
-                self_collision.append([link0, link1])
-    # Adjacent legs on same side (LF-LM, LM-LH, RF-RM, RM-RH)
-    for left_pair, right_pair in [('LF', 'LM'), ('LM', 'LH'), ('RF', 'RM'), ('RM', 'RH')]:
-        for link0 in legs[left_pair]:
-            for link1 in legs[right_pair]:
-                self_collision.append([link0, link1])
-    # Front legs with eyes/antennae
-    for link0 in legs['LF'] + legs['RF']:
+    # All leg-leg pairs (prevents any leg passing through any other leg)
+    leg_names = list(legs.keys())
+    for i, leg_a in enumerate(leg_names):
+        for leg_b in leg_names[i + 1:]:  # avoid duplicates and same-leg
+            for link0 in legs[leg_a]:
+                for link1 in legs[leg_b]:
+                    self_collision.append([link0, link1])
+    # All legs with all body segments (prevents legs passing through body)
+    all_leg_links = [link for leg_links in legs.values() for link in leg_links]
+    for link0 in all_leg_links:
         for link1 in body_segments:
-            if link0[0] == link1[0]:
-                self_collision.append([link0, link1])
+            self_collision.append([link0, link1])
+    # Body-body pairs (fill gaps between body segments)
+    for i, b0 in enumerate(body_segments):
+        for b1 in body_segments[i + 1:]:
+            self_collision.append([b0, b1])
 
     #: Setting up the paths for the SDF and POSE files
-    model_path = neuromechfly_path.joinpath(
-        "data/design/sdf/neuromechfly_locomotion_optimization.sdf"
-    )
+    # Floor SDF has free support joints so the fly can move; ball SDF has fixed support
+    sdf_name = ("neuromechfly_locomotion_floor.sdf" if args.ground == 'floor'
+                else "neuromechfly_locomotion_optimization.sdf")
+    model_path = neuromechfly_path.joinpath("data/design/sdf", sdf_name)
     pose_path = neuromechfly_path.joinpath(
         "data/config/pose/pose_tripod.yaml"
+    )
+    fixed_joints_path = neuromechfly_path.joinpath(
+        "data/config/pose/fixed_joints.yaml"
     )
     controller_path = neuromechfly_path.joinpath(
         "data/config/network/locomotion_network.graphml"
@@ -138,15 +153,18 @@ def main(args):
         'ball_mass': 54.6e-6,
         'ground_friction_coef': 1.3
     }
+    # model_offset: 11.2mm for ball (fly on top), 0.5mm for floor (feet touch ground)
+    model_offset = [0., 0., 0.5e-3] if args.ground == 'floor' else [0., 0., 11.2e-3]
     # Simulation options
     sim_options = {
         "headless": not args.gui,
         "controller_type": args.controller,
         "model": str(model_path),
-        "model_offset": [0., 0., 11.2e-3],
+        "model_offset": model_offset,
         "run_time": run_time,
         "time_step": time_step,
         "pose": pose_path,
+        "fixed_joints": fixed_joints_path,
         "solver_iterations": 100,
         "base_link": 'Thorax',
         "controller": str(controller_path),
@@ -156,13 +174,13 @@ def main(args):
         "record": args.record,  # : Set True to record the simulation
         "solver_iterations": args.solver_iterations,
         'camera_distance': 4.4,
-        'track': False,
+        'track': True if args.ground == 'floor' else False,  # Follow fly when it moves on floor
         'moviename': f'{exp}_gen_{gen}_sol_{args.sol}.mp4',
         'moviespeed': 0.2,  # : Speed of the recorded movie
         'slow_down': args.slow,
         'sleep_time': 1e-3,
         'rot_cam': True,  # : Set true to rotate the camera automatically
-        'ground': 'ball',
+        'ground': args.ground,
         'results_path': f'{exp}_gen_{gen}_sol_{args.sol}',
         'save_frames': False,
         **ball_specs
@@ -213,9 +231,11 @@ def main(args):
         # Log penalties
         # OBJECTIVES
         objectives = {}
-        #: Forward distance (backward rotation of the ball)
-        objectives['distance'] = np.array(
-            animal.ball_rotations)[0] * animal.ball_radius * animal.units.meters
+        if args.ground == 'floor':
+            objectives['distance'] = animal.base_position[0] * animal.units.meters
+        else:
+            objectives['distance'] = np.array(
+                animal.ball_rotations)[0] * animal.ball_radius * animal.units.meters
         objectives['stability'] = animal.opti_stability
         # PENALTIES
         penalties = {}
@@ -248,7 +268,9 @@ def main(args):
         ax1.scatter(fun[ind, 0], fun[ind, 1], label=f'Ind: {ind}')
         ax1.set_xlabel('Distance')
         ax1.set_ylabel('Stability')
-        ax1.set_title(f'Speed: {round(animal.ball_rotations[0]*5/run_time, 2)} mm/s')
+        speed_mm_s = (animal.base_position[0] * 1000 / run_time if args.ground == 'floor'
+                      else animal.ball_rotations[0] * 5 / run_time)
+        ax1.set_title(f'Speed: {round(speed_mm_s, 2)} mm/s')
         ax1.legend()
 
         duty_factor = [round(dut, 3) for dut in animal.duty_factor]

@@ -1,4 +1,14 @@
-""" Drosophila Evolution.
+"""NSGA-II multi-objective gait optimization for Drosophila.
+
+DrosophilaEvolution defines the optimization problem:
+- 63 variables: CPG frequency, muscle params (α,β,γ,δ,rest_pos) per joint, phases
+- 2 objectives: distance (forward motion), stability (penalties)
+- Supports ball (fixed support) and floor (free support) locomotion
+- Two-phase training: run_stability_optimization (Phase 1) then warm-start
+  run_multiobj_optimization (Phase 2)
+
+Provides load_warm_start_solutions() to seed the initial population from
+Phase 1 or previous runs.
 
 Modified from NeuroMechFly (https://github.com/NeLy-EPFL/NeuroMechFly).
 """
@@ -112,6 +122,70 @@ class WriteFullFrontToFileObserver(Observer):
 def read_optimization_results(fun, var):
     """ Read optimization results. """
     return (np.loadtxt(fun), np.loadtxt(var))
+
+
+def load_warm_start_solutions(warm_start_path, n_solutions, sort_by='stability'):
+    """
+    Load solutions from a previous optimization run for warm start.
+    Selects the best n_solutions by the specified objective.
+
+    Parameters
+    ----------
+    warm_start_path : str or Path
+        Path to the optimization results folder (e.g. optimization_results/run_...)
+    n_solutions : int
+        Number of solutions to load
+    sort_by : str
+        'stability' = lowest obj[1] (stability), 'distance' = lowest obj[0] (distance),
+        'combined' = lowest sum of objectives
+
+    Returns
+    -------
+    list of lists
+        Variable vectors for each solution
+    """
+    path = Path(warm_start_path)
+    if not path.is_absolute():
+        base = Path(neuromechfly_path) / 'scripts/neuromuscular_optimization'
+        # Try base-relative first (e.g. optimization_results/run_...)
+        if (base / path).exists():
+            path = base / path
+        elif path.exists():
+            path = path.resolve()
+        else:
+            path = base / path
+
+    # Find latest generation (FUN.0, FUN.1, ... or FUN.txt)
+    fun_files = sorted(path.glob('FUN.[0-9]*'), key=lambda p: int(p.suffix[1:]), reverse=True)
+    if not fun_files:
+        fun_files = list(path.glob('FUN.txt'))
+    if not fun_files:
+        raise FileNotFoundError(f'No FUN.* or FUN.txt in {path}')
+
+    fun_path = fun_files[0]
+    var_path = fun_path.parent / (fun_path.stem.replace('FUN', 'VAR') + fun_path.suffix)
+
+    if not var_path.exists():
+        raise FileNotFoundError(f'No matching VAR file for {fun_path}')
+
+    fun = np.loadtxt(fun_path)
+    var = np.loadtxt(var_path)
+
+    if fun.ndim == 1:
+        fun = fun.reshape(1, -1)
+    if var.ndim == 1:
+        var = var.reshape(1, -1)
+
+    if sort_by == 'stability':
+        idx = np.argsort(fun[:, 1])  # obj[1] = stability
+    elif sort_by == 'distance':
+        idx = np.argsort(fun[:, 0])  # obj[0] = distance
+    else:
+        idx = np.argsort(np.sum(fun, axis=1))
+
+    var_sorted = var[idx]
+    n_take = min(n_solutions, len(var_sorted))
+    return [var_sorted[i].tolist() for i in range(n_take)]
 
 
 def generate_config_file(log: dict) -> None:
@@ -267,12 +341,18 @@ class DrosophilaEvolution(FloatProblem):
         run_time = 2.0
         #: Set a time step for the physics engine
         time_step = 1e-4
+        controller_type = getattr(self, 'controller_type', 'cpg')
+        ground = getattr(self, 'ground', 'ball')
         #: Setting up the paths for the SDF and POSE files
-        model_path = neuromechfly_path.joinpath(
-            "data/design/sdf/neuromechfly_locomotion_optimization.sdf"
-        )
+        # Floor SDF has free support joints so the fly can move; ball SDF has fixed support
+        sdf_name = ("neuromechfly_locomotion_floor.sdf" if ground == 'floor'
+                    else "neuromechfly_locomotion_optimization.sdf")
+        model_path = neuromechfly_path.joinpath("data/design/sdf", sdf_name)
         pose_path = neuromechfly_path.joinpath(
             "data/config/pose/pose_tripod.yaml"
+        )
+        fixed_joints_path = neuromechfly_path.joinpath(
+            "data/config/pose/fixed_joints.yaml"
         )
         controller_path = neuromechfly_path.joinpath(
             "data/config/network/locomotion_network.graphml"
@@ -286,7 +366,7 @@ class DrosophilaEvolution(FloatProblem):
         )
 
         # Self-collisions to prevent legs passing through body/other legs
-        leg_segments = ['Tibia'] + [f'Tarsus{i}' for i in range(1, 6)]
+        leg_segments = ['Coxa', 'Femur', 'Tibia'] + [f'Tarsus{i}' for i in range(1, 6)]
         legs = {
             'LF': [f'LF{s}' for s in leg_segments],
             'LM': [f'LM{s}' for s in leg_segments],
@@ -295,20 +375,28 @@ class DrosophilaEvolution(FloatProblem):
             'RM': [f'RM{s}' for s in leg_segments],
             'RH': [f'RH{s}' for s in leg_segments],
         }
-        body_segments = [f'{s}{b}' for s in ('L', 'R') for b in ('Eye', 'Antenna')]
+        body_segments = [
+            'Thorax', 'Head', 'A1A2', 'A3', 'A4', 'A5', 'A6',
+            'Haustellum', 'Rostrum', 'LEye', 'REye', 'LAntenna', 'RAntenna',
+            'LHaltere', 'RHaltere', 'LWing', 'RWing',
+        ]
         self_collisions = []
-        for left, right in [('LF', 'RF'), ('LM', 'RM'), ('LH', 'RH')]:
-            for link0 in legs[left]:
-                for link1 in legs[right]:
-                    self_collisions.append([link0, link1])
-        for left_pair, right_pair in [('LF', 'LM'), ('LM', 'LH'), ('RF', 'RM'), ('RM', 'RH')]:
-            for link0 in legs[left_pair]:
-                for link1 in legs[right_pair]:
-                    self_collisions.append([link0, link1])
-        for link0 in legs['LF'] + legs['RF']:
+        # All leg-leg pairs (prevents any leg passing through any other leg)
+        leg_names = list(legs.keys())
+        for i, leg_a in enumerate(leg_names):
+            for leg_b in leg_names[i + 1:]:  # avoid duplicates and same-leg
+                for link0 in legs[leg_a]:
+                    for link1 in legs[leg_b]:
+                        self_collisions.append([link0, link1])
+        # All legs with all body segments (prevents legs passing through body)
+        all_leg_links = [link for leg_links in legs.values() for link in leg_links]
+        for link0 in all_leg_links:
             for link1 in body_segments:
-                if link0[0] == link1[0]:
-                    self_collisions.append([link0, link1])
+                self_collisions.append([link0, link1])
+        # Body-body pairs (fill gaps between body segments)
+        for i, b0 in enumerate(body_segments):
+            for b1 in body_segments[i + 1:]:
+                self_collisions.append([b0, b1])
 
         # Set the ball specs based on your experimental setup
         ball_specs = {
@@ -316,8 +404,8 @@ class DrosophilaEvolution(FloatProblem):
             'ground_friction_coef': 1.3
         }
         # Simulation options
-        controller_type = getattr(self, 'controller_type', 'cpg')
-        ground = getattr(self, 'ground', 'ball')
+        # model_offset: 11.2mm for ball (fly on top), 0.5mm for floor (feet touch ground)
+        model_offset = [0., 0., 0.5e-3] if ground == 'floor' else [0., 0., 11.2e-3]
         sim_options = {
             "headless": True,
             "controller_type": controller_type,
@@ -325,8 +413,9 @@ class DrosophilaEvolution(FloatProblem):
             "model": str(model_path),
             "time_step": time_step,
             "solver_iterations": 100,
-            "model_offset": [0., 0., 11.2e-3],
+            "model_offset": model_offset,
             "pose": str(pose_path),
+            "fixed_joints": str(fixed_joints_path),
             "run_time": run_time,
             "controller": str(controller_path) if controller_type == 'cpg' else None,
             "base_link": 'Thorax',
@@ -382,16 +471,30 @@ class DrosophilaEvolution(FloatProblem):
         penalties['velocity'] = fly.opti_velocity
         penalties['joint_limits'] = fly.opti_joint_limit
 
-        weights = {
-            'distance': -1e1,
-            'stability': -1e-2,
-            'mechanical_work': 1e-2,
-            'stance': 1e0,
-            'lava': 1e-1,
-            'velocity': 1e-1,
-            'joint_limits': 5e-2,
-            'duty_factor': 1e2
-        }
+        stability_only = getattr(self, 'stability_only', False)
+        if stability_only:
+            # Phase 1: prioritize stability; small distance weight to avoid pure "stand still"
+            weights = {
+                'distance': -1e-3,
+                'stability': -1e-2,
+                'mechanical_work': 1e-2,
+                'stance': 1e0,
+                'lava': 1e-1,
+                'velocity': 1e-1,
+                'joint_limits': 5e-2,
+                'duty_factor': 1e2
+            }
+        else:
+            weights = {
+                'distance': -1e1,
+                'stability': -1e-2,
+                'mechanical_work': 1e-2,
+                'stance': 1e0,
+                'lava': 1e-1,
+                'velocity': 1e-1,
+                'joint_limits': 5e-2,
+                'duty_factor': 1e2
+            }
 
         objectives_weighted = {
             obj_name: obj_value * weights[obj_name]
@@ -429,6 +532,7 @@ class DrosophilaEvolution(FloatProblem):
             if weight_name in {**objectives, **penalties}
         }
 
+        constraints = getattr(self, '_constraints', {})
         config_file = {**config_file, **constraints} if 'stance' in penalties else config_file
         generate_config_file(config_file)
 
