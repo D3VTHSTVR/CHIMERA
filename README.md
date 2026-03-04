@@ -17,6 +17,7 @@
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Testing](#testing)
 - [Project Structure](#project-structure)
 - [Scripts Reference](#scripts-reference)
 - [Modules Overview](#modules-overview)
@@ -30,18 +31,25 @@
 
 See [docs/installation.md](docs/installation.md) for full instructions.
 
-**Apple Silicon (M1/M2):** Use Python 3.8 and arm64 conda:
+**Quick install** (Python 3.8 recommended):
 
 ```bash
-conda create -n neuromechfly38 python=3.8 numpy Cython shapely
-conda activate neuromechfly38
+conda create -n neuromechfly python=3.8 numpy Cython shapely
+conda activate neuromechfly
 pip install git+https://gitlab.com/FARMSIM/farms_container.git
-conda install -y pybullet pytables matplotlib networkx scipy pillow pyyaml trimesh
+# On macOS: install PyBullet from conda (binary) before pip install to avoid build failures
+conda install -c conda-forge -y pybullet
+conda install -y pytables matplotlib networkx scipy pillow pyyaml trimesh
 pip install treelib jmetalpy scikit-posthocs df3dpostprocessing==1.1.0
 pip install -e farms_network
 pip install -e .
-# If bullet_sensors import fails: python setup.py build_ext --inplace
 ```
+
+**macOS:** If `pip install -e .` tries to build PyBullet from source and fails, install it first with `conda install -c conda-forge pybullet`. See [docs/installation.md](docs/installation.md) for troubleshooting (wrong Python, arm64, etc.).
+
+**Apple Silicon (M1/M2):** If `bullet_sensors` import fails: `python setup.py build_ext --inplace`
+
+**Tests:** From repo root with the env active: `pip install -e ".[test]"` then `python -m pytest tests/ -v` (use `python -m` so the correct env is used).
 
 ---
 
@@ -171,6 +179,19 @@ CPG + muscle parameters are evolved with NSGA-II.
 | `data/joint_tracking/` | Joint angles for replay |
 | `scripts/neuromuscular_optimization/optimization_results/` | Optimization runs (FUN, VAR, CONFIG) |
 | `scripts/kinematic_replay/simulation_results/` | Replay outputs |
+
+---
+
+## Testing
+
+From the repo root with your conda env activated:
+
+```bash
+pip install -e ".[test]"
+python -m pytest tests/ -v
+```
+
+One integration test is skipped if PyBullet or the data directory is unavailable; the rest run without simulation.
 
 ---
 
