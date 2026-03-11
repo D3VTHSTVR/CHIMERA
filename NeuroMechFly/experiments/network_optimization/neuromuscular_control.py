@@ -53,6 +53,8 @@ class DrosophilaSimulation(BulletSimulation):
         container.muscle.add_table('passive_torques')
         # Initialize bullet simulation
         super().__init__(container, units, **sim_options)
+        # Stricter torque limit when viewing (GUI) reduces explosion risk
+        self.MAX_JOINT_TORQUE_NM = sim_options.get('max_joint_torque_nm', 5e-5)
         # Parameters
         self.sides = ('L', 'R')
         self.positions = ('F', 'M', 'H')
@@ -128,19 +130,8 @@ class DrosophilaSimulation(BulletSimulation):
         # Initialize container
         self.container.initialize()
 
-        # Set the physical properties of the environment
-        # TODO: Move this to bullet
-        dynamics = {
-            "lateralFriction": 1.0,
-            "restitution": 0.0,
-            "spinningFriction": 0.0,
-            "rollingFriction": 0.0,
-            "linearDamping": 0.0,
-            "angularDamping": 0.0,
-            "maxJointVelocity": 1e8}
-        for _link, idx in self.link_id.items():
-            for name, value in dynamics.items():
-                p.changeDynamics(self.animal, idx, **{name: value})
+        # Set physical properties of animal links (friction, damping, etc.)
+        self.set_animal_link_dynamics()
 
         # Debug parameter
         self.draw_ss_line_ids = [
@@ -181,19 +172,24 @@ class DrosophilaSimulation(BulletSimulation):
             if joint.axis.limits
         }
 
+    # Max joint torque (N⋅m) for clamping; prevents physics explosion from large gains
+    MAX_JOINT_TORQUE_NM = 5e-5
+
     def muscle_controller(self):
         """ Muscle controller. """
         utorque = self.units.torques
+        max_scaled = self.MAX_JOINT_TORQUE_NM * utorque
 
-        torques = {
-            self.joint_id[key]: value.compute_torque(only_passive=False) * utorque
-            for key, value in self.active_muscles.items()
-        }
+        torques = {}
+        for key, value in self.active_muscles.items():
+            tau = value.compute_torque(only_passive=False) * utorque
+            tau = np.clip(tau, -max_scaled, max_scaled)
+            torques[self.joint_id[key]] = tau
         p.setJointMotorControlArray(
             self.animal,
-            jointIndices=torques.keys(),
+            jointIndices=list(torques.keys()),
             controlMode=p.TORQUE_CONTROL,
-            forces=torques.values()
+            forces=list(torques.values())
         )
 
     def controller_to_actuator(self, t):

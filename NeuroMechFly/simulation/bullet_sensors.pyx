@@ -155,8 +155,9 @@ cdef class ContactSensors:
                 fx_tot += fx
                 fy_tot += fy
                 fz_tot += fz
-                # TODO: Check this computation
-                # Position
+                # Position: force-weighted center of contact points.
+                # Each contact contributes (normal + lateral force) * position;
+                # effectively a weighted average favoring higher-force contacts.
                 position = tuple_to_struct(contact[5])
                 px += (rx+fx)*position.x*imeters
                 py += (ry+fy)*position.y*imeters

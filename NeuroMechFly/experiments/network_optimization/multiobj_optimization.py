@@ -119,6 +119,45 @@ class WriteFullFrontToFileObserver(Observer):
                 self.counter += 1
 
 
+class TrainingProgressObserver(Observer):
+    """CLI progress bar for training: evaluations, generation count, and ETA."""
+
+    def __init__(
+        self,
+        max_evaluations: int,
+        population_size: int = None,
+    ) -> None:
+        self._max = max_evaluations
+        self._pop = population_size
+        self._progress = 0
+        self._pbar = None
+
+    def update(self, *args, **kwargs):
+        from tqdm import tqdm
+
+        evaluations = kwargs.get("EVALUATIONS", 0)
+        if self._pbar is None:
+            self._pbar = tqdm(
+                total=self._max,
+                desc="Training",
+                unit=" evals",
+                bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
+                ascii=True,
+                dynamic_ncols=True,
+            )
+        self._pbar.update(evaluations - self._progress)
+        self._progress = evaluations
+        if self._pop and self._progress > 0:
+            gen_max = (self._max + self._pop - 1) // self._pop
+            gen = min(
+                gen_max,
+                max(1, (self._progress + self._pop - 1) // self._pop),
+            )
+            self._pbar.set_postfix_str(f"gen {gen}/{gen_max}", refresh=False)
+        if self._progress >= self._max:
+            self._pbar.close()
+
+
 def read_optimization_results(fun, var):
     """ Read optimization results. """
     return (np.loadtxt(fun), np.loadtxt(var))
@@ -302,10 +341,20 @@ class DrosophilaEvolution(FloatProblem):
 
         # self.initial_solutions =  list(var) # [var[np.argmin(fun[:, 0])]]
 
-        # Initial solutions: upper, mid, and lower bounds
+        # Initial solutions: "standing" (minimal gains), low_gain, mid, upper
+        # Standing = freq + muscles at lower bound (minimal torque), phases at 0
+        standing = np.hstack([
+            self.lower_bound[:46],
+            np.zeros(63 - 46),
+        ]).tolist()
+        # Low-gain: gains in lower 25% of range to reduce explosion risk
+        low_gain = self.lower_bound + 0.25 * (self.upper_bound - self.lower_bound)
+        low_gain = np.clip(low_gain, self.lower_bound, self.upper_bound).tolist()
         self.initial_solutions = [
-            self.upper_bound.tolist(),
+            standing,
+            low_gain,
             ((self.upper_bound + self.lower_bound) * 0.5).tolist(),
+            self.upper_bound.tolist(),
         ]
         self._initial_solutions = self.initial_solutions.copy()
 
@@ -337,8 +386,25 @@ class DrosophilaEvolution(FloatProblem):
         solution : <FloatSolution>
             Evaluated solution.
         """
-        #: Set how long the simulation will run to evaluate the solution
-        run_time = 2.0
+        #: Set how long the simulation will run to evaluate the solution.
+        #  Use problem.evaluation_run_time for short-job runs (e.g. 0.5 s off monsoon).
+        run_time = getattr(self, 'evaluation_run_time', 2.0)
+        n_steps = int(run_time / 1e-4)
+        total = getattr(self, '_eval_total', None)
+        if total is not None:
+            self._eval_counter = getattr(self, '_eval_counter', 0) + 1
+            pylog.info(
+                'Evaluation {}/{} started (run_time={}s, {} steps). This may take 15-40 min.'.format(
+                    self._eval_counter, total, run_time, n_steps
+                )
+            )
+            import sys
+            print(
+                '[{}/{}] Evaluation started ({}s sim, ~{} steps)...'.format(
+                    self._eval_counter, total, run_time, n_steps
+                ),
+                flush=True,
+            )
         #: Set a time step for the physics engine
         time_step = 1e-4
         controller_type = getattr(self, 'controller_type', 'cpg')
@@ -406,13 +472,29 @@ class DrosophilaEvolution(FloatProblem):
         # Simulation options
         # model_offset: 11.2mm for ball (fly on top), 0.5mm for floor (feet touch ground)
         model_offset = [0., 0., 0.5e-3] if ground == 'floor' else [0., 0., 11.2e-3]
+        stability_only = getattr(self, 'stability_only', False)
+        # Training-friendly scene for stability: softer contacts, reduced gravity, more grip
+        if stability_only and ground == 'floor':
+            ball_specs = {**ball_specs, 'ground_friction_coef': 2.0}
+            scene_training = {
+                'gravity': [0., 0., -9.81 * 0.85],
+                'contactERP': 0.05,
+                'globalCFM': 8.0,
+                'contact_stiffness': 2000,
+                'contact_damping': 80,
+                'joint_damping': 0.04,
+                'solver_iterations': 600,
+            }
+        else:
+            scene_training = {}
         sim_options = {
             "headless": True,
             "controller_type": controller_type,
             "ground": ground,
             "model": str(model_path),
             "time_step": time_step,
-            "solver_iterations": 100,
+            "num_substep": 2,
+            "solver_iterations": 500,
             "model_offset": model_offset,
             "pose": str(pose_path),
             "fixed_joints": str(fixed_joints_path),
@@ -424,7 +506,8 @@ class DrosophilaEvolution(FloatProblem):
             "camera_distance": 4.5,
             "track": False,
             "globalCFM": 5.,
-            **ball_specs
+            **ball_specs,
+            **scene_training,
         }
         #: Create the container instance that the simulation results will be dumped
         container = Container(run_time / time_step)
@@ -473,15 +556,15 @@ class DrosophilaEvolution(FloatProblem):
 
         stability_only = getattr(self, 'stability_only', False)
         if stability_only:
-            # Phase 1: prioritize stability; small distance weight to avoid pure "stand still"
+            # Phase 1: prioritize stability; heavy penalties for explosion (velocity, joint limits)
             weights = {
                 'distance': -1e-3,
                 'stability': -1e-2,
                 'mechanical_work': 1e-2,
                 'stance': 1e0,
                 'lava': 1e-1,
-                'velocity': 1e-1,
-                'joint_limits': 5e-2,
+                'velocity': 5e-1,
+                'joint_limits': 2e-1,
                 'duty_factor': 1e2
             }
         else:
@@ -536,6 +619,8 @@ class DrosophilaEvolution(FloatProblem):
         config_file = {**config_file, **constraints} if 'stance' in penalties else config_file
         generate_config_file(config_file)
 
+        if total is not None:
+            print('[{}/{}] Evaluation done.'.format(self._eval_counter, total), flush=True)
         return solution
 
     def get_name(self):

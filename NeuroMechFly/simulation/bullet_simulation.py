@@ -34,6 +34,10 @@ from tqdm import tqdm
 neuromechfly_path = Path(pkgutil.get_loader(
     'NeuroMechFly').get_filename()).parents[1]
 
+# Tolerance (kg) for ball mass validation when comparing measured vs calculated mass.
+# ~8 mg: accounts for measurement error in small ball masses.
+BALL_MASS_TOLERANCE_KG = 8.0e-6
+
 
 class BulletSimulation(metaclass=abc.ABCMeta):
     """Methods to run bullet simulation."""
@@ -93,6 +97,9 @@ class BulletSimulation(metaclass=abc.ABCMeta):
         self.ball_info = kwargs.get('ball_info', False)
         self.contactERP = kwargs.get('contactERP', 0.1)
         self.globalCFM = kwargs.get('globalCFM', 3.0)
+        self.contact_stiffness = kwargs.get('contact_stiffness', 5000)
+        self.contact_damping = kwargs.get('contact_damping', 100)
+        self.joint_damping = kwargs.get('joint_damping', 0.0)
         self.save_frames = kwargs.get('save_frames', False)
         self.path_imgs = kwargs.get(
             'results_path',
@@ -155,8 +162,12 @@ class BulletSimulation(metaclass=abc.ABCMeta):
         self.initialize_simulation()
 
     def __del__(self):
+        try:
+            if p.isConnected():
+                p.disconnect()
+        except Exception:
+            pass
         print('Simulation has ended')
-        p.disconnect()
 
     @staticmethod
     def rendering(render=1):
@@ -358,14 +369,37 @@ class BulletSimulation(metaclass=abc.ABCMeta):
                 )
                 valid_self_collisions.append((link0, link1))
 
-        # Reduce collision margin for small-scale fly (mm units); improves contact
+        self._setup_simulation_continue(valid_self_collisions)
+
+    def set_animal_link_dynamics(self, dynamics=None):
+        """Apply dynamics properties (friction, damping, etc.) to all links of the animal.
+
+        Called by subclasses (e.g. DrosophilaSimulation) that need custom link dynamics.
+        """
+        if dynamics is None:
+            dynamics = {
+                "lateralFriction": 1.0,
+                "restitution": 0.0,
+                "spinningFriction": 0.0,
+                "rollingFriction": 0.0,
+                "linearDamping": 0.0,
+                "angularDamping": 0.0,
+                "maxJointVelocity": 1e8,
+            }
+        for _link, idx in self.link_id.items():
+            for name, value in dynamics.items():
+                p.changeDynamics(self.animal, idx, **{name: value})
+
+    def _setup_simulation_continue(self, valid_self_collisions):
+        """Continue setup: collision margins, sensors, etc. (internal)."""
+        # Contact stiffness/damping (softer = less bouncy, helps stability during training)
         for link_name, link_idx in self.link_id.items():
             if link_idx >= 0:  # skip base
                 try:
                     p.changeDynamics(
                         self.animal, link_idx,
-                        contactStiffness=5000,
-                        contactDamping=100,
+                        contactStiffness=self.contact_stiffness,
+                        contactDamping=self.contact_damping,
                     )
                 except p.error:
                     pass
@@ -487,11 +521,11 @@ class BulletSimulation(metaclass=abc.ABCMeta):
             forces=np.zeros((self.num_joints, 1))
         )
 
-        # Disable link linear and angular damping
+        # Link and joint damping (small joint_damping helps stability, e.g. 0.02)
         for njoint in range(self.num_joints):
             p.changeDynamics(self.animal, njoint, linearDamping=0.0)
             p.changeDynamics(self.animal, njoint, angularDamping=0.0)
-            p.changeDynamics(self.animal, njoint, jointDamping=0.0)
+            p.changeDynamics(self.animal, njoint, jointDamping=self.joint_damping)
 
         self.total_mass = 0.0
 
@@ -606,10 +640,15 @@ class BulletSimulation(metaclass=abc.ABCMeta):
         # Assert if calculated and measured ball mass are not the same
 
         if mass != 0:
-            # TODO: Decide the threshold here, it is 8 mg now
-            assert abs(
-                mass - calculated_mass) < 8.0e-6 * self.units.kilograms, "Calculated ({} kg) and measured ({} kg) ball masses do not match!".format(
-                calculated_mass / self.units.kilograms, mass / self.units.kilograms)
+            tolerance = BALL_MASS_TOLERANCE_KG * self.units.kilograms
+            assert abs(mass - calculated_mass) < tolerance, (
+                "Calculated ({:.6e} kg) and measured ({:.6e} kg) ball masses "
+                "differ by more than tolerance ({:.6e} kg).".format(
+                    calculated_mass / self.units.kilograms,
+                    mass / self.units.kilograms,
+                    BALL_MASS_TOLERANCE_KG,
+                )
+            )
         else:
             mass = calculated_mass
 
@@ -946,10 +985,20 @@ class BulletSimulation(metaclass=abc.ABCMeta):
 
         Returns
         -------
-        out :
+        out : bool
+            False if the GUI was closed (physics server disconnected).
         """
-        #base = np.array(self.base_position) * self.units.meters
+        # If user closed the GUI window, PyBullet disconnects; exit cleanly
+        if self.gui == p.GUI and not p.isConnected():
+            return False
+        try:
+            return self._step_impl(t, optimization)
+        except p.error:
+            # getLinkState failed / Not connected to physics server
+            return False
 
+    def _step_impl(self, t, optimization=False):
+        """ Inner step implementation (so we can catch pybullet.error in step()). """
         # Camera
         if self.gui == p.GUI and self.track_animal:
             base = np.array(self.base_position) * self.units.meters

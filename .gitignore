@@ -101,11 +101,12 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
-# Environments
+# Environments (but allow SimpleChimera/env package)
 .env
 .venv
 env/
 venv/
+!SimpleChimera/env/
 ENV/
 env.bak/
 venv.bak/
@@ -147,3 +148,6 @@ scripts/neuromuscular_optimization/VAR.txt
 scripts/neuromuscular_optimization/simulation_*/
 scripts/neuromuscular_optimization/TRAINING_LOG.txt
 scripts/kinematic_replay/simulation_results/
+scripts/neuromuscular_optimization/optimization_results/
+Kilowatt/PicoGo_Code*/uf2/
+Kilowatt/*.zip

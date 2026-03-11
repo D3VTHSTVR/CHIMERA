@@ -1,0 +1,232 @@
+<?xml version="1.0"?>
+<!-- 6-legged insect: 3 DOF per leg (Coxa, Femur, Tibia) like fly model. 18 actuated joints. -->
+<robot name="six_leg_insect">
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.2"/>
+      <!-- Heavier body so legs can't throw it; box 0.16 x 0.10 x 0.03 -->
+      <inertia ixx="2.1e-4" ixy="0" ixz="0" iyy="4.8e-4" iyz="0" izz="6.0e-4"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="0.16 0.10 0.03"/></geometry>
+      <material name="body"><color rgba="0.3 0.5 0.3 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="0.16 0.10 0.03"/></geometry>
+    </collision>
+  </link>
+
+  <!-- Leg segment macros: coxa box (y), femur box (z), tibia box (z) -->
+  <!-- L1: front left. Body attachment (0.06, 0.055, -0.015). Coxa +Y, then femur -Z, tibia -Z -->
+  <link name="L1_coxa">
+    <inertial><origin xyz="0 0.01 0" rpy="0 0 0"/><mass value="0.006"/><inertia ixx="5e-6" ixy="0" ixz="0" iyy="5e-6" iyz="0" izz="5e-6"/></inertial>
+    <visual><origin xyz="0 0.01 0" rpy="0 0 0"/><geometry><box size="0.012 0.02 0.012"/></geometry><material name="leg"><color rgba="0.5 0.4 0.3 1"/></material></visual>
+    <collision><origin xyz="0 0.01 0" rpy="0 0 0"/><geometry><box size="0.012 0.02 0.012"/></geometry></collision>
+  </link>
+  <joint name="L1_coxa" type="revolute">
+    <parent link="base_link"/><child link="L1_coxa"/>
+    <origin xyz="0.06 0.055 -0.015" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.8" upper="0.8" effort="0.2" velocity="2"/>
+  </joint>
+  <link name="L1_femur">
+    <inertial><origin xyz="0 0 -0.0175" rpy="0 0 0"/><mass value="0.008"/><inertia ixx="5e-6" ixy="0" ixz="0" iyy="5e-6" iyz="0" izz="5e-6"/></inertial>
+    <visual><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.01 0.01 0.035"/></geometry><material name="leg"/></visual>
+    <collision><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.01 0.01 0.035"/></geometry></collision>
+  </link>
+  <joint name="L1_femur" type="revolute">
+    <parent link="L1_coxa"/><child link="L1_femur"/>
+    <origin xyz="0 0.02 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.2" upper="0.5" effort="0.2" velocity="2"/>
+  </joint>
+  <link name="L1_tibia">
+    <inertial><origin xyz="0 0 -0.0175" rpy="0 0 0"/><mass value="0.008"/><inertia ixx="5e-6" ixy="0" ixz="0" iyy="5e-6" iyz="0" izz="5e-6"/></inertial>
+    <visual><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.008 0.008 0.035"/></geometry><material name="leg"/></visual>
+    <collision><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.008 0.008 0.035"/></geometry></collision>
+  </link>
+  <joint name="L1_tibia" type="revolute">
+    <parent link="L1_femur"/><child link="L1_tibia"/>
+    <origin xyz="0 0 -0.035" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-2.0" upper="0.3" effort="0.2" velocity="2"/>
+  </joint>
+
+  <!-- L2: mid left -->
+  <link name="L2_coxa">
+    <inertial><origin xyz="0 0.01 0" rpy="0 0 0"/><mass value="0.006"/><inertia ixx="5e-6" ixy="0" ixz="0" iyy="5e-6" iyz="0" izz="5e-6"/></inertial>
+    <visual><origin xyz="0 0.01 0" rpy="0 0 0"/><geometry><box size="0.012 0.02 0.012"/></geometry><material name="leg"/></visual>
+    <collision><origin xyz="0 0.01 0" rpy="0 0 0"/><geometry><box size="0.012 0.02 0.012"/></geometry></collision>
+  </link>
+  <joint name="L2_coxa" type="revolute">
+    <parent link="base_link"/><child link="L2_coxa"/>
+    <origin xyz="0 0.055 -0.015" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.8" upper="0.8" effort="0.2" velocity="2"/>
+  </joint>
+  <link name="L2_femur">
+    <inertial><origin xyz="0 0 -0.0175" rpy="0 0 0"/><mass value="0.008"/><inertia ixx="5e-6" ixy="0" ixz="0" iyy="5e-6" iyz="0" izz="5e-6"/></inertial>
+    <visual><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.01 0.01 0.035"/></geometry><material name="leg"/></visual>
+    <collision><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.01 0.01 0.035"/></geometry></collision>
+  </link>
+  <joint name="L2_femur" type="revolute">
+    <parent link="L2_coxa"/><child link="L2_femur"/>
+    <origin xyz="0 0.02 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.2" upper="0.5" effort="0.2" velocity="2"/>
+  </joint>
+  <link name="L2_tibia">
+    <inertial><origin xyz="0 0 -0.0175" rpy="0 0 0"/><mass value="0.008"/><inertia ixx="5e-6" ixy="0" ixz="0" iyy="5e-6" iyz="0" izz="5e-6"/></inertial>
+    <visual><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.008 0.008 0.035"/></geometry><material name="leg"/></visual>
+    <collision><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.008 0.008 0.035"/></geometry></collision>
+  </link>
+  <joint name="L2_tibia" type="revolute">
+    <parent link="L2_femur"/><child link="L2_tibia"/>
+    <origin xyz="0 0 -0.035" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-2.0" upper="0.3" effort="0.2" velocity="2"/>
+  </joint>
+
+  <!-- L3: hind left -->
+  <link name="L3_coxa">
+    <inertial><origin xyz="0 0.01 0" rpy="0 0 0"/><mass value="0.006"/><inertia ixx="5e-6" ixy="0" ixz="0" iyy="5e-6" iyz="0" izz="5e-6"/></inertial>
+    <visual><origin xyz="0 0.01 0" rpy="0 0 0"/><geometry><box size="0.012 0.02 0.012"/></geometry><material name="leg"/></visual>
+    <collision><origin xyz="0 0.01 0" rpy="0 0 0"/><geometry><box size="0.012 0.02 0.012"/></geometry></collision>
+  </link>
+  <joint name="L3_coxa" type="revolute">
+    <parent link="base_link"/><child link="L3_coxa"/>
+    <origin xyz="-0.06 0.055 -0.015" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.8" upper="0.8" effort="0.2" velocity="2"/>
+  </joint>
+  <link name="L3_femur">
+    <inertial><origin xyz="0 0 -0.0175" rpy="0 0 0"/><mass value="0.008"/><inertia ixx="5e-6" ixy="0" ixz="0" iyy="5e-6" iyz="0" izz="5e-6"/></inertial>
+    <visual><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.01 0.01 0.035"/></geometry><material name="leg"/></visual>
+    <collision><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.01 0.01 0.035"/></geometry></collision>
+  </link>
+  <joint name="L3_femur" type="revolute">
+    <parent link="L3_coxa"/><child link="L3_femur"/>
+    <origin xyz="0 0.02 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.2" upper="0.5" effort="0.2" velocity="2"/>
+  </joint>
+  <link name="L3_tibia">
+    <inertial><origin xyz="0 0 -0.0175" rpy="0 0 0"/><mass value="0.008"/><inertia ixx="5e-6" ixy="0" ixz="0" iyy="5e-6" iyz="0" izz="5e-6"/></inertial>
+    <visual><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.008 0.008 0.035"/></geometry><material name="leg"/></visual>
+    <collision><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.008 0.008 0.035"/></geometry></collision>
+  </link>
+  <joint name="L3_tibia" type="revolute">
+    <parent link="L3_femur"/><child link="L3_tibia"/>
+    <origin xyz="0 0 -0.035" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-2.0" upper="0.3" effort="0.2" velocity="2"/>
+  </joint>
+
+  <!-- R1: front right (coxa extends in -Y; use rpy 0 0 pi so child +Y = body -Y) -->
+  <link name="R1_coxa">
+    <inertial><origin xyz="0 0.01 0" rpy="0 0 0"/><mass value="0.006"/><inertia ixx="5e-6" ixy="0" ixz="0" iyy="5e-6" iyz="0" izz="5e-6"/></inertial>
+    <visual><origin xyz="0 0.01 0" rpy="0 0 0"/><geometry><box size="0.012 0.02 0.012"/></geometry><material name="leg"/></visual>
+    <collision><origin xyz="0 0.01 0" rpy="0 0 0"/><geometry><box size="0.012 0.02 0.012"/></geometry></collision>
+  </link>
+  <joint name="R1_coxa" type="revolute">
+    <parent link="base_link"/><child link="R1_coxa"/>
+    <origin xyz="0.06 -0.055 -0.015" rpy="0 0 3.14159"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.8" upper="0.8" effort="0.2" velocity="2"/>
+  </joint>
+  <link name="R1_femur">
+    <inertial><origin xyz="0 0 -0.0175" rpy="0 0 0"/><mass value="0.008"/><inertia ixx="5e-6" ixy="0" ixz="0" iyy="5e-6" iyz="0" izz="5e-6"/></inertial>
+    <visual><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.01 0.01 0.035"/></geometry><material name="leg"/></visual>
+    <collision><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.01 0.01 0.035"/></geometry></collision>
+  </link>
+  <joint name="R1_femur" type="revolute">
+    <parent link="R1_coxa"/><child link="R1_femur"/>
+    <origin xyz="0 0.02 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.2" upper="0.5" effort="0.2" velocity="2"/>
+  </joint>
+  <link name="R1_tibia">
+    <inertial><origin xyz="0 0 -0.0175" rpy="0 0 0"/><mass value="0.008"/><inertia ixx="5e-6" ixy="0" ixz="0" iyy="5e-6" iyz="0" izz="5e-6"/></inertial>
+    <visual><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.008 0.008 0.035"/></geometry><material name="leg"/></visual>
+    <collision><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.008 0.008 0.035"/></geometry></collision>
+  </link>
+  <joint name="R1_tibia" type="revolute">
+    <parent link="R1_femur"/><child link="R1_tibia"/>
+    <origin xyz="0 0 -0.035" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-2.0" upper="0.3" effort="0.2" velocity="2"/>
+  </joint>
+
+  <!-- R2: mid right -->
+  <link name="R2_coxa">
+    <inertial><origin xyz="0 0.01 0" rpy="0 0 0"/><mass value="0.006"/><inertia ixx="5e-6" ixy="0" ixz="0" iyy="5e-6" iyz="0" izz="5e-6"/></inertial>
+    <visual><origin xyz="0 0.01 0" rpy="0 0 0"/><geometry><box size="0.012 0.02 0.012"/></geometry><material name="leg"/></visual>
+    <collision><origin xyz="0 0.01 0" rpy="0 0 0"/><geometry><box size="0.012 0.02 0.012"/></geometry></collision>
+  </link>
+  <joint name="R2_coxa" type="revolute">
+    <parent link="base_link"/><child link="R2_coxa"/>
+    <origin xyz="0 -0.055 -0.015" rpy="0 0 3.14159"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.8" upper="0.8" effort="0.2" velocity="2"/>
+  </joint>
+  <link name="R2_femur">
+    <inertial><origin xyz="0 0 -0.0175" rpy="0 0 0"/><mass value="0.008"/><inertia ixx="5e-6" ixy="0" ixz="0" iyy="5e-6" iyz="0" izz="5e-6"/></inertial>
+    <visual><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.01 0.01 0.035"/></geometry><material name="leg"/></visual>
+    <collision><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.01 0.01 0.035"/></geometry></collision>
+  </link>
+  <joint name="R2_femur" type="revolute">
+    <parent link="R2_coxa"/><child link="R2_femur"/>
+    <origin xyz="0 0.02 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.2" upper="0.5" effort="0.2" velocity="2"/>
+  </joint>
+  <link name="R2_tibia">
+    <inertial><origin xyz="0 0 -0.0175" rpy="0 0 0"/><mass value="0.008"/><inertia ixx="5e-6" ixy="0" ixz="0" iyy="5e-6" iyz="0" izz="5e-6"/></inertial>
+    <visual><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.008 0.008 0.035"/></geometry><material name="leg"/></visual>
+    <collision><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.008 0.008 0.035"/></geometry></collision>
+  </link>
+  <joint name="R2_tibia" type="revolute">
+    <parent link="R2_femur"/><child link="R2_tibia"/>
+    <origin xyz="0 0 -0.035" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-2.0" upper="0.3" effort="0.2" velocity="2"/>
+  </joint>
+
+  <!-- R3: hind right -->
+  <link name="R3_coxa">
+    <inertial><origin xyz="0 0.01 0" rpy="0 0 0"/><mass value="0.006"/><inertia ixx="5e-6" ixy="0" ixz="0" iyy="5e-6" iyz="0" izz="5e-6"/></inertial>
+    <visual><origin xyz="0 0.01 0" rpy="0 0 0"/><geometry><box size="0.012 0.02 0.012"/></geometry><material name="leg"/></visual>
+    <collision><origin xyz="0 0.01 0" rpy="0 0 0"/><geometry><box size="0.012 0.02 0.012"/></geometry></collision>
+  </link>
+  <joint name="R3_coxa" type="revolute">
+    <parent link="base_link"/><child link="R3_coxa"/>
+    <origin xyz="-0.06 -0.055 -0.015" rpy="0 0 3.14159"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.8" upper="0.8" effort="0.2" velocity="2"/>
+  </joint>
+  <link name="R3_femur">
+    <inertial><origin xyz="0 0 -0.0175" rpy="0 0 0"/><mass value="0.008"/><inertia ixx="5e-6" ixy="0" ixz="0" iyy="5e-6" iyz="0" izz="5e-6"/></inertial>
+    <visual><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.01 0.01 0.035"/></geometry><material name="leg"/></visual>
+    <collision><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.01 0.01 0.035"/></geometry></collision>
+  </link>
+  <joint name="R3_femur" type="revolute">
+    <parent link="R3_coxa"/><child link="R3_femur"/>
+    <origin xyz="0 0.02 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.2" upper="0.5" effort="0.2" velocity="2"/>
+  </joint>
+  <link name="R3_tibia">
+    <inertial><origin xyz="0 0 -0.0175" rpy="0 0 0"/><mass value="0.008"/><inertia ixx="5e-6" ixy="0" ixz="0" iyy="5e-6" iyz="0" izz="5e-6"/></inertial>
+    <visual><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.008 0.008 0.035"/></geometry><material name="leg"/></visual>
+    <collision><origin xyz="0 0 -0.0175" rpy="0 0 0"/><geometry><box size="0.008 0.008 0.035"/></geometry></collision>
+  </link>
+  <joint name="R3_tibia" type="revolute">
+    <parent link="R3_femur"/><child link="R3_tibia"/>
+    <origin xyz="0 0 -0.035" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-2.0" upper="0.3" effort="0.2" velocity="2"/>
+  </joint>
+</robot>

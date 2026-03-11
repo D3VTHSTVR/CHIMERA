@@ -1,0 +1,20 @@
+#!/bin/bash
+# Wrapper to run stability optimization with conda neuromechfly38 Python.
+# Use: ./run_stability --pop 20 --gen 15 --process 4 --ground floor
+# Or:  bash run_stability --pop 20 --gen 15 --process 4 --ground floor
+set -e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV="neuromechfly38"
+# Use CONDA_PREFIX if env is active, else find env
+if [[ -n "$CONDA_PREFIX" && "$CONDA_DEFAULT_ENV" == "$ENV" ]]; then
+  PYTHON="$CONDA_PREFIX/bin/python"
+elif [[ -x "$HOME/miniforge3/envs/$ENV/bin/python" ]]; then
+  PYTHON="$HOME/miniforge3/envs/$ENV/bin/python"
+elif [[ -x "$(conda info --base 2>/dev/null)/envs/$ENV/bin/python" ]]; then
+  PYTHON="$(conda info --base)/envs/$ENV/bin/python"
+else
+  echo "Error: Activate neuromechfly38 first: conda activate neuromechfly38"
+  echo "Then run: python $SCRIPT_DIR/run_stability_optimization \"\$@\""
+  exit 1
+fi
+exec "$PYTHON" "$SCRIPT_DIR/run_stability_optimization" "$@"

@@ -56,7 +56,8 @@ def parse_args():
     parser.add_argument('--slow', dest='slow', action='store_true')
     parser.add_argument('--log_penalties', dest='log_penalties', action='store_true')
     parser.add_argument('--profile', dest='profile', action='store_true')
-    parser.add_argument('--solver_iterations', dest='solver_iterations', type=int, default=100)
+    parser.add_argument('--solver_iterations', dest='solver_iterations', type=int, default=1000,
+                        help='Solver iterations per step (higher = more stable, default 1000)')
     parser.add_argument(
         '--controller',
         choices=['cpg', 'snn'],
@@ -68,6 +69,12 @@ def parse_args():
         choices=['ball', 'floor'],
         default='floor',
         help='Ground type: floor (default) or ball',
+    )
+    parser.add_argument(
+        '--max_torque',
+        type=float,
+        default=None,
+        help='Max joint torque (N⋅m) for clamping; lower = more stable (default: 3e-5 with --gui, 5e-5 headless)',
     )
     parser.set_defaults(gui=False, profile=False)
 
@@ -155,7 +162,7 @@ def main(args):
     }
     # model_offset: 11.2mm for ball (fly on top), 0.5mm for floor (feet touch ground)
     model_offset = [0., 0., 0.5e-3] if args.ground == 'floor' else [0., 0., 11.2e-3]
-    # Simulation options
+    # Simulation options (solver_iterations, joint_damping, max_joint_torque_nm reduce "explosion")
     sim_options = {
         "headless": not args.gui,
         "controller_type": args.controller,
@@ -165,14 +172,17 @@ def main(args):
         "time_step": time_step,
         "pose": pose_path,
         "fixed_joints": fixed_joints_path,
-        "solver_iterations": 100,
+        "num_substep": 4 if args.gui else 2,  # more substeps when viewing for stability
+        "solver_iterations": args.solver_iterations,
         "base_link": 'Thorax',
         "controller": str(controller_path),
         "ground_contacts": ground_contact,
         "self_collisions": self_collision,
         "draw_collisions": True,  # : Set True to change the color of colliding segments
         "record": args.record,  # : Set True to record the simulation
-        "solver_iterations": args.solver_iterations,
+        "joint_damping": 0.05 if args.gui else 0.02,  # higher damping when viewing
+        "max_joint_torque_nm": (args.max_torque if args.max_torque is not None
+                               else (3e-5 if args.gui else 5e-5)),  # stricter when viewing
         'camera_distance': 4.4,
         'track': True if args.ground == 'floor' else False,  # Follow fly when it moves on floor
         'moviename': f'{exp}_gen_{gen}_sol_{args.sol}.mp4',
@@ -212,7 +222,9 @@ def main(args):
 
     #: Run the selected parameter values in the simulation
     animal.update_parameters(params)
-    animal.run(optimization=False)
+    if not animal.run(optimization=False):
+        pylog.warning('Simulation ended (GUI closed or physics disconnected).')
+        return
     #: Dump the optimization results
     results_path = os.path.join(
         neuromechfly_path,

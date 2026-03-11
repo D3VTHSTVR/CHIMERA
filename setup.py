@@ -38,6 +38,13 @@ setuptools.setup(
     author_email='NeuroMechFly@groupes.epfl.ch',
     license='Apache 2.0',
     packages=setuptools.find_packages(),
+    extras_require={
+        'test': ['pytest>=6.0'],
+        # Optional: use "pip install -e .[sim]" only if you have a pybullet wheel.
+        # On macOS (especially Apple Silicon), install pybullet via conda first:
+        #   conda install -c conda-forge pybullet
+        'sim': ['pybullet'],
+    },
     install_requires=[
         'farms_pylog @ git+https://gitlab.com/FARMSIM/farms_pylog.git',
         'farms_network @ git+https://gitlab.com/FARMSIM/farms_network.git',
@@ -51,7 +58,6 @@ setuptools.setup(
         'treelib',
         'trimesh',
         'tqdm',
-        'pybullet',
         'PyYAML',
         'dataclasses',
         'jmetalpy',
