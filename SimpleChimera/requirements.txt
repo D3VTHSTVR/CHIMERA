@@ -1,0 +1,4 @@
+# If pip install fails (e.g. build error on Mac), use conda:
+#   conda install -c conda-forge pybullet
+pybullet>=3.2.5
+numpy>=1.19.0

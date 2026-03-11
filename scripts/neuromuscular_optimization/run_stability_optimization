@@ -13,18 +13,27 @@ Then for Phase 2:
   run_multiobj_optimization --pop 20 --gen 50 --process 4 --ground floor \\
     --warm-start optimization_results/run_DrosophilaStability_var_63_obj_2_pop_20_gen_15_YYMMDD_HHMMSS
 """
+from __future__ import print_function
+import sys
+print('Loading stability optimization script...', flush=True)
+sys.stdout.flush()
 
 import os
 import argparse
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
 import farms_pylog as pylog
 from jmetal.algorithm.multiobjective.nsgaii import NSGAII
 from jmetal.lab.visualization import Plot
-from jmetal.operator import PolynomialMutation, SBXCrossover
-from jmetal.util.evaluator import MultiprocessEvaluator
-from jmetal.util.observer import ProgressBarObserver, VisualizerObserver
+try:
+    from jmetal.operator import PolynomialMutation, SBXCrossover
+except ImportError:
+    from jmetal.operator.mutation import PolynomialMutation
+    from jmetal.operator.crossover import SBXCrossover
+from jmetal.util.evaluator import MultiprocessEvaluator, SequentialEvaluator
+from jmetal.util.observer import VisualizerObserver
 from jmetal.util.ranking import FastNonDominatedRanking
 from jmetal.util.solution import (print_function_values_to_file,
                                   print_variables_to_file)
@@ -33,19 +42,50 @@ from jmetal.util.termination_criterion import StoppingByEvaluations
 from NeuroMechFly.experiments.network_optimization import multiobj_optimization
 from NeuroMechFly.experiments.network_optimization.multiobj_optimization import (
     WriteFullFrontToFileObserver,
+    TrainingProgressObserver,
 )
 from NeuroMechFly.utils.path_utils import get_neuromechfly_path
 
 neuromechfly_path = get_neuromechfly_path()
 
 
+def _current_git_branch():
+    """Return current git branch name, or None if not in a repo / detached."""
+    try:
+        out = subprocess.run(
+            ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+            cwd=neuromechfly_path,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if out.returncode == 0 and out.stdout:
+            return out.stdout.strip()
+    except (subprocess.SubprocessError, FileNotFoundError):
+        pass
+    return None
+
+
 def parse_args():
     """Parse arguments from command line."""
+    branch = _current_git_branch()
+    # Short jobs by default on all branches except monsoon (long runs).
+    if branch == 'monsoon':
+        default_pop, default_gen = 20, 15
+    else:
+        default_pop, default_gen = 4, 2
+
     parser = argparse.ArgumentParser(
         description='Phase 1: Stability-only optimization for warm start'
     )
-    parser.add_argument('-g', '--gen', type=int, default=15)
-    parser.add_argument('-p', '--pop', type=int, default=20)
+    parser.add_argument(
+        '-g', '--gen', type=int, default=default_gen,
+        help='Generations (default: %(default)s on this branch; 15 on monsoon)',
+    )
+    parser.add_argument(
+        '-p', '--pop', type=int, default=default_pop,
+        help='Population size (default: %(default)s on this branch; 20 on monsoon)',
+    )
     parser.add_argument('-n', '--process', type=int, default=4)
     parser.add_argument(
         '--controller',
@@ -64,15 +104,36 @@ def parse_args():
 
 
 if __name__ == '__main__':
+    import sys
+    # Unbuffered so progress shows immediately (conda run can buffer otherwise)
+    sys.stdout.reconfigure(line_buffering=True) if hasattr(sys.stdout, 'reconfigure') else None
+    sys.stderr.reconfigure(line_buffering=True) if hasattr(sys.stderr, 'reconfigure') else None
+    print('Stability optimization: script started.', flush=True)
+
     args = parse_args()
     n_pop = args.pop
     n_gen = args.gen
     max_evaluations = n_pop * n_gen
 
+    print('Stability optimization: will stop after exactly {} evaluations (pop={} × gen={}).'.format(
+        max_evaluations, n_pop, n_gen), flush=True)
+    if args.process <= 1:
+        print('Running with 1 process: each evaluation may take 15–40 min. Progress will print after each one.', flush=True)
+
+    print('Building problem and algorithm...', flush=True)
     problem = multiobj_optimization.DrosophilaEvolution()
     problem.controller_type = args.controller
     problem.ground = args.ground
     problem.stability_only = True
+    # Shorter eval = faster feedback (each eval can take 15–40 min with 1 process).
+    branch = _current_git_branch()
+    if branch != 'monsoon':
+        problem.evaluation_run_time = 0.5  # seconds per candidate (2.0 on monsoon)
+
+    # Sequential evaluator when 1 process so progress prints in main process.
+    evaluator = SequentialEvaluator() if args.process <= 1 else MultiprocessEvaluator(args.process)
+    problem._eval_total = max_evaluations
+    problem._eval_counter = 0
 
     algorithm = NSGAII(
         problem=problem,
@@ -86,7 +147,7 @@ if __name__ == '__main__':
             probability=0.9,
             distribution_index=15,
         ),
-        population_evaluator=MultiprocessEvaluator(args.process),
+        population_evaluator=evaluator,
         termination_criterion=StoppingByEvaluations(max_evaluations=max_evaluations),
     )
 
@@ -108,12 +169,16 @@ if __name__ == '__main__':
         )
     )
     algorithm.observable.register(
-        observer=ProgressBarObserver(max=max_evaluations)
+        observer=TrainingProgressObserver(
+            max_evaluations=max_evaluations,
+            population_size=n_pop,
+        )
     )
     algorithm.observable.register(
         observer=VisualizerObserver(reference_front=problem.reference_front)
     )
 
+    print('Starting algorithm. First evaluation may take 15–40 min...', flush=True)
     algorithm.run()
 
     front = algorithm.result()

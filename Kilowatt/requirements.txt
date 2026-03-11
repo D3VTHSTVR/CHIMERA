@@ -1,0 +1,3 @@
+# Optional: for simulate.py (plotting)
+numpy>=1.18
+# matplotlib>=3.0   # uncomment to save motor_signals.png

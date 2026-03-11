@@ -17,6 +17,7 @@
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Testing](#testing)
 - [Project Structure](#project-structure)
 - [Scripts Reference](#scripts-reference)
 - [Modules Overview](#modules-overview)
@@ -30,18 +31,25 @@
 
 See [docs/installation.md](docs/installation.md) for full instructions.
 
-**Apple Silicon (M1/M2):** Use Python 3.8 and arm64 conda:
+**Quick install** (Python 3.8 recommended):
 
 ```bash
-conda create -n neuromechfly38 python=3.8 numpy Cython shapely
-conda activate neuromechfly38
+conda create -n neuromechfly python=3.8 numpy Cython shapely
+conda activate neuromechfly
 pip install git+https://gitlab.com/FARMSIM/farms_container.git
-conda install -y pybullet pytables matplotlib networkx scipy pillow pyyaml trimesh
+# On macOS: install PyBullet from conda (binary) before pip install to avoid build failures
+conda install -c conda-forge -y pybullet
+conda install -y pytables matplotlib networkx scipy pillow pyyaml trimesh
 pip install treelib jmetalpy scikit-posthocs df3dpostprocessing==1.1.0
 pip install -e farms_network
 pip install -e .
-# If bullet_sensors import fails: python setup.py build_ext --inplace
 ```
+
+**macOS:** If `pip install -e .` tries to build PyBullet from source and fails, install it first with `conda install -c conda-forge pybullet`. See [docs/installation.md](docs/installation.md) for troubleshooting (wrong Python, arm64, etc.).
+
+**Apple Silicon (M1/M2):** If `bullet_sensors` import fails: `python setup.py build_ext --inplace`
+
+**Tests:** From repo root with the env active: `pip install -e ".[test]"` then `python -m pytest tests/ -v` (use `python -m` so the correct env is used).
 
 ---
 
@@ -117,6 +125,23 @@ CPG + muscle parameters are evolved with NSGA-II.
 
 **Ground types:** `--ground ball` (default) or `--ground floor`. Floor uses free support joints so the fly can walk forward.
 
+**MVP – Train and view the fly (no explosion):** Run with the env’s Python so PyBullet is found (if you get `ModuleNotFoundError: No module named 'pybullet'`, your shell’s `python` is not the env). From the repo root:
+
+```bash
+cd /path/to/NeuroMechFly
+
+# Short training (stability, 4 pop, 2 gen) — use conda run so the env’s Python (with pybullet) is used
+conda run -n neuromechfly38 python scripts/neuromuscular_optimization/run_stability_optimization --pop 4 --gen 2 --process 1 --ground floor
+
+# View a solution (replace RUN_FOLDER with the folder name printed at the end, e.g. run_DrosophilaStability_var_63_obj_2_pop_4_gen_2_260225_142854)
+conda run -n neuromechfly38 python scripts/neuromuscular_optimization/run_neuromuscular_control --gui -p optimization_results/RUN_FOLDER --ground floor -g 1
+```
+
+Alternatively, activate the env and use its Python explicitly: `conda activate neuromechfly38` then  
+`$(conda run -n neuromechfly38 which python) scripts/neuromuscular_optimization/run_stability_optimization ...` (or fix PATH so `which python` points to the env).
+
+Torque clamping, higher solver iterations (500), and light joint damping are applied by default to keep the simulation stable. If the fly still explodes, try `--solver_iterations 1000`.
+
 **Two-phase training (recommended for floor):**
 
 1. Phase 1 – stability:
@@ -171,6 +196,19 @@ CPG + muscle parameters are evolved with NSGA-II.
 | `data/joint_tracking/` | Joint angles for replay |
 | `scripts/neuromuscular_optimization/optimization_results/` | Optimization runs (FUN, VAR, CONFIG) |
 | `scripts/kinematic_replay/simulation_results/` | Replay outputs |
+
+---
+
+## Testing
+
+From the repo root with your conda env activated:
+
+```bash
+pip install -e ".[test]"
+python -m pytest tests/ -v
+```
+
+One integration test is skipped if PyBullet or the data directory is unavailable; the rest run without simulation.
 
 ---
 
