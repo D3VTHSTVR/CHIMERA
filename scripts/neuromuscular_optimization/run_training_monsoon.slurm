@@ -54,8 +54,7 @@ if [ $CONDA_LOADED -eq 0 ]; then
 fi
 
 # Activate env (override with sbatch --export=CONDA_ENV=your_env,...)
-# On Monsoon, only 'base' exists by default. Create neuromechfly38 first for isolation.
-CONDA_ENV=${CONDA_ENV:-base}
+CONDA_ENV=${CONDA_ENV:-neuromechfly38}
 echo "=== Activating $CONDA_ENV ==="
 conda activate $CONDA_ENV || {
   echo "ERROR: Conda env '$CONDA_ENV' not found."

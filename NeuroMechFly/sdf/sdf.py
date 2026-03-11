@@ -543,7 +543,8 @@ class Inertial(Options):
         return cls(
             pose=np.asarray(pose),
             mass=mass,
-            # TODO: This is Cylinder inertia!!
+            # Approximate capsule inertia: uses solid-cylinder formula aligned
+            # with length axis. Valid when cylinder dominates (length >> radius).
             inertias=[
                 1/12*mass*(3*radius**2 + length**2),
                 0,

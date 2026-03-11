@@ -125,6 +125,23 @@ CPG + muscle parameters are evolved with NSGA-II.
 
 **Ground types:** `--ground ball` (default) or `--ground floor`. Floor uses free support joints so the fly can walk forward.
 
+**MVP – Train and view the fly (no explosion):** Run with the env’s Python so PyBullet is found (if you get `ModuleNotFoundError: No module named 'pybullet'`, your shell’s `python` is not the env). From the repo root:
+
+```bash
+cd /path/to/NeuroMechFly
+
+# Short training (stability, 4 pop, 2 gen) — use conda run so the env’s Python (with pybullet) is used
+conda run -n neuromechfly38 python scripts/neuromuscular_optimization/run_stability_optimization --pop 4 --gen 2 --process 1 --ground floor
+
+# View a solution (replace RUN_FOLDER with the folder name printed at the end, e.g. run_DrosophilaStability_var_63_obj_2_pop_4_gen_2_260225_142854)
+conda run -n neuromechfly38 python scripts/neuromuscular_optimization/run_neuromuscular_control --gui -p optimization_results/RUN_FOLDER --ground floor -g 1
+```
+
+Alternatively, activate the env and use its Python explicitly: `conda activate neuromechfly38` then  
+`$(conda run -n neuromechfly38 which python) scripts/neuromuscular_optimization/run_stability_optimization ...` (or fix PATH so `which python` points to the env).
+
+Torque clamping, higher solver iterations (500), and light joint damping are applied by default to keep the simulation stable. If the fly still explodes, try `--solver_iterations 1000`.
+
 **Two-phase training (recommended for floor):**
 
 1. Phase 1 – stability:

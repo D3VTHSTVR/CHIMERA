@@ -12,15 +12,20 @@ To make further changes to the simulation, see 'sim_options' on line 114.
 
 import os
 import argparse
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
 import farms_pylog as pylog
 from jmetal.algorithm.multiobjective.nsgaii import NSGAII
 from jmetal.lab.visualization import Plot
-from jmetal.operator import PolynomialMutation, SBXCrossover
+try:
+    from jmetal.operator import PolynomialMutation, SBXCrossover
+except ImportError:
+    from jmetal.operator.mutation import PolynomialMutation
+    from jmetal.operator.crossover import SBXCrossover
 from jmetal.util.evaluator import MultiprocessEvaluator
-from jmetal.util.observer import ProgressBarObserver, VisualizerObserver
+from jmetal.util.observer import VisualizerObserver
 from jmetal.util.ranking import FastNonDominatedRanking
 from jmetal.util.solution import (print_function_values_to_file,
                                   print_variables_to_file)
@@ -29,6 +34,7 @@ from jmetal.util.termination_criterion import StoppingByEvaluations
 from NeuroMechFly.experiments.network_optimization import multiobj_optimization
 from NeuroMechFly.experiments.network_optimization.multiobj_optimization import (
     WriteFullFrontToFileObserver,
+    TrainingProgressObserver,
     load_warm_start_solutions,
 )
 from NeuroMechFly.utils.path_utils import get_neuromechfly_path
@@ -36,11 +42,34 @@ from NeuroMechFly.utils.path_utils import get_neuromechfly_path
 neuromechfly_path = get_neuromechfly_path()
 
 
+def _current_git_branch():
+    """Return current git branch name, or None if not in a repo / detached."""
+    try:
+        out = subprocess.run(
+            ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+            cwd=neuromechfly_path,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if out.returncode == 0 and out.stdout:
+            return out.stdout.strip()
+    except (subprocess.SubprocessError, FileNotFoundError):
+        pass
+    return None
+
+
 def parse_args():
     """ Parse arguments from command line """
+    branch = _current_git_branch()
+    if branch == 'monsoon':
+        default_pop, default_gen = 20, 50
+    else:
+        default_pop, default_gen = 4, 2
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('-g', '--gen', type=int, default=60)
-    parser.add_argument('-p', '--pop', type=int, default=200)
+    parser.add_argument('-g', '--gen', type=int, default=default_gen)
+    parser.add_argument('-p', '--pop', type=int, default=default_pop)
     parser.add_argument('-n', '--process', type=int, default=8)
     parser.add_argument(
         '--controller',
@@ -51,8 +80,8 @@ def parse_args():
     parser.add_argument(
         '--ground',
         choices=['ball', 'floor'],
-        default='ball',
-        help='Ground type: ball (default) or floor',
+        default='floor',
+        help='Ground type: floor (default) or ball',
     )
     parser.add_argument(
         '--warm-start',
@@ -73,9 +102,14 @@ if __name__ == "__main__":
     n_gen = args.gen
     # Problem
     max_evaluations = n_pop*n_gen
+    print('Multi-objective optimization: will stop after exactly {} evaluations (pop={} × gen={}).'.format(
+        max_evaluations, n_pop, n_gen))
     problem = multiobj_optimization.DrosophilaEvolution()
     problem.controller_type = args.controller
     problem.ground = args.ground
+    branch = _current_git_branch()
+    if branch != 'monsoon':
+        problem.evaluation_run_time = 0.5
 
     if args.warm_start:
         warm_solutions = load_warm_start_solutions(
@@ -130,7 +164,10 @@ if __name__ == "__main__":
 
     # Visualisers
     algorithm.observable.register(
-        observer=ProgressBarObserver(max=max_evaluations)
+        observer=TrainingProgressObserver(
+            max_evaluations=max_evaluations,
+            population_size=n_pop,
+        )
     )
     algorithm.observable.register(
         observer=VisualizerObserver(
