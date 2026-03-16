@@ -54,14 +54,14 @@ class BalanceEnv:
         max_torque=0.00028,
         max_steps=2500,
         seed=None,
+        forward_vel_weight=0.0,
+        **kwargs,
     ):
         self.time_step = time_step
         self.gravity_scale = gravity_scale
         self.ground_friction = ground_friction
         self.contact_stiffness = contact_stiffness
         self.contact_damping = contact_damping
-        # Legs weak vs body: max_torque so each joint contributes a small force;
-        # ~0.0025 N⋅m gives legs enough influence to affect body without launching it
         self.max_torque = max_torque
         self.max_steps = max_steps
         self._gui = p.GUI if gui else p.DIRECT
@@ -71,9 +71,10 @@ class BalanceEnv:
         self._joint_indices = None
         self._step_count = 0
         self._last_camera_target = [0, 0, 0.04]
-        self._last_tripod = None  # for alternation bonus (TRIPOD_A, TRIPOD_B, or None)
-        self._steps_same_tripod = 0  # penalize standing in one tripod too long
-        self._stable_count = 0  # steps in a row that we're upright and still (before allowing torque)
+        self._last_tripod = None
+        self._steps_same_tripod = 0
+        self._stable_count = 0
+        self._state = None
         if seed is not None:
             np.random.seed(seed)
 
@@ -158,7 +159,8 @@ class BalanceEnv:
                 cameraPitch=-25,
                 cameraTargetPosition=[0, 0, 0.04],
             )
-        return self._get_state()
+        self._state = self._get_state()
+        return self._state.copy()
 
     def _limb_tips_in_contact(self):
         """True if at least one limb tip (tibia link) is touching the ground."""
@@ -202,52 +204,8 @@ class BalanceEnv:
         Returns: next_state, reward, done, info
         """
         action = np.clip(np.asarray(action, dtype=np.float64).ravel(), -1.0, 1.0)
-        # Long warmup so robot is fully at rest before any torque
-        warmup_steps = min(2000, max(200, self.max_steps // 3))
-        # After warmup, delay before first torque, then very gentle ramp (scale for short episodes)
-        torque_delay_steps = min(400, max(50, self.max_steps // 6))
-        ramp_steps = min(900, max(100, self.max_steps // 2))
-        if self._step_count < warmup_steps:
-            torques = np.zeros(N_JOINTS, dtype=np.float64)
-            self._stable_count = 0
-        else:
-            steps_after_warmup = self._step_count - warmup_steps
-            if steps_after_warmup < torque_delay_steps:
-                torques = np.zeros(N_JOINTS, dtype=np.float64)
-                self._stable_count = 0
-            else:
-                try:
-                    pos, orn = p.getBasePositionAndOrientation(self._robot, physicsClientId=self._client)
-                    lin_vel, _ = p.getBaseVelocity(self._robot, physicsClientId=self._client)
-                    base_z = pos[2]
-                    mat = p.getMatrixFromQuaternion(orn, physicsClientId=self._client)
-                    body_up_z = float(mat[8])
-                    speed = np.sqrt(lin_vel[0]**2 + lin_vel[1]**2 + lin_vel[2]**2)
-                    vz = lin_vel[2]
-                except (p.error, IndexError):
-                    base_z = 0.0
-                    body_up_z = 0.0
-                    speed = 1.0
-                    vz = 1.0
-                feet_contact = self._limb_tips_in_contact()
-                upright = body_up_z > 0.7
-                moving_up = vz > 0.0
-                moving_fast = speed > 0.04
-                too_high = base_z > 0.038
-                would_allow = feet_contact and upright and not moving_up and not moving_fast and not too_high
-                if would_allow:
-                    self._stable_count += 1
-                else:
-                    self._stable_count = 0
-                # Only apply torque after 400 consecutive stable steps (prevents flip from first push)
-                stable_required = min(400, self.max_steps // 10)
-                if would_allow and self._stable_count >= stable_required:
-                    into_ramp = self._stable_count - stable_required
-                    ramp = min(1.0, into_ramp / ramp_steps)
-                    scale = 0.04 + 0.96 * ramp
-                    torques = action * self.max_torque * scale
-                else:
-                    torques = np.zeros(N_JOINTS, dtype=np.float64)
+        # Apply torque from step 0 (no warmup or stability gate)
+        torques = action * self.max_torque
         p.setJointMotorControlArray(
             self._robot,
             self._joint_indices,
@@ -313,6 +271,7 @@ class BalanceEnv:
             pass
         # Done: fell (tilt > ~60°) or timeout
         done = tilt > 1.0 or self._step_count >= self.max_steps
+        self._state = state
         return state, float(reward), done, {}
 
     def close(self):

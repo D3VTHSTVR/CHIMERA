@@ -1,0 +1,115 @@
+<!-- Minimal MJCF for 6-legged insect (same topology as six_leg_insect.urdf).
+     Used by C++ run_mujoco. Install: pip install mujoco -->
+<mujoco model="six_leg_insect">
+  <option timestep="0.002" gravity="0 0 -9.81"/>
+  <default>
+    <joint armature="0.001" damping="0.02"/>
+    <geom friction="3.2 0.5 0.5" condim="3"/>
+  </default>
+  <worldbody>
+    <geom name="floor" type="plane" size="1 1 0.01" rgba="0.4 0.45 0.5 1"/>
+    <body name="base_link" pos="0 0 0.085">
+      <freejoint name="base_free"/>
+      <geom name="base_geom" type="box" size="0.08 0.05 0.015" mass="0.2" rgba="0.3 0.5 0.3 1"/>
+      <!-- L1 -->
+      <body name="L1_coxa" pos="0.06 0.055 -0.015">
+        <joint name="L1_coxa" type="hinge" axis="0 1 0" range="-0.8 0.8"/>
+        <geom type="box" size="0.006 0.01 0.006" pos="0 0.01 0" mass="0.006" rgba="0.5 0.4 0.3 1"/>
+        <body name="L1_femur" pos="0 0.02 0">
+          <joint name="L1_femur" type="hinge" axis="0 1 0" range="-1.2 0.5"/>
+          <geom type="box" size="0.005 0.005 0.0175" pos="0 0 -0.0175" mass="0.008" rgba="0.5 0.4 0.3 1"/>
+          <body name="L1_tibia" pos="0 0 -0.035">
+            <joint name="L1_tibia" type="hinge" axis="0 1 0" range="-2.0 0.3"/>
+            <geom name="L1_foot" type="box" size="0.004 0.004 0.0175" pos="0 0 -0.0175" mass="0.008" rgba="0.5 0.4 0.3 1"/>
+          </body>
+        </body>
+      </body>
+      <!-- L2 -->
+      <body name="L2_coxa" pos="0 0.055 -0.015">
+        <joint name="L2_coxa" type="hinge" axis="0 1 0" range="-0.8 0.8"/>
+        <geom type="box" size="0.006 0.01 0.006" pos="0 0.01 0" mass="0.006" rgba="0.5 0.4 0.3 1"/>
+        <body name="L2_femur" pos="0 0.02 0">
+          <joint name="L2_femur" type="hinge" axis="0 1 0" range="-1.2 0.5"/>
+          <geom type="box" size="0.005 0.005 0.0175" pos="0 0 -0.0175" mass="0.008" rgba="0.5 0.4 0.3 1"/>
+          <body name="L2_tibia" pos="0 0 -0.035">
+            <joint name="L2_tibia" type="hinge" axis="0 1 0" range="-2.0 0.3"/>
+            <geom name="L2_foot" type="box" size="0.004 0.004 0.0175" pos="0 0 -0.0175" mass="0.008" rgba="0.5 0.4 0.3 1"/>
+          </body>
+        </body>
+      </body>
+      <!-- L3 -->
+      <body name="L3_coxa" pos="-0.06 0.055 -0.015">
+        <joint name="L3_coxa" type="hinge" axis="0 1 0" range="-0.8 0.8"/>
+        <geom type="box" size="0.006 0.01 0.006" pos="0 0.01 0" mass="0.006" rgba="0.5 0.4 0.3 1"/>
+        <body name="L3_femur" pos="0 0.02 0">
+          <joint name="L3_femur" type="hinge" axis="0 1 0" range="-1.2 0.5"/>
+          <geom type="box" size="0.005 0.005 0.0175" pos="0 0 -0.0175" mass="0.008" rgba="0.5 0.4 0.3 1"/>
+          <body name="L3_tibia" pos="0 0 -0.035">
+            <joint name="L3_tibia" type="hinge" axis="0 1 0" range="-2.0 0.3"/>
+            <geom name="L3_foot" type="box" size="0.004 0.004 0.0175" pos="0 0 -0.0175" mass="0.008" rgba="0.5 0.4 0.3 1"/>
+          </body>
+        </body>
+      </body>
+      <!-- R1: mirrored geometry (no 180 euler); -Y axis and positions so leg extends to the right -->
+      <body name="R1_coxa" pos="0.06 -0.055 -0.015">
+        <joint name="R1_coxa" type="hinge" axis="0 -1 0" range="-0.8 0.8"/>
+        <geom type="box" size="0.006 0.01 0.006" pos="0 -0.01 0" mass="0.006" rgba="0.5 0.4 0.3 1"/>
+        <body name="R1_femur" pos="0 -0.02 0">
+          <joint name="R1_femur" type="hinge" axis="0 -1 0" range="-1.2 0.5"/>
+          <geom type="box" size="0.005 0.005 0.0175" pos="0 0 -0.0175" mass="0.008" rgba="0.5 0.4 0.3 1"/>
+          <body name="R1_tibia" pos="0 0 -0.035">
+            <joint name="R1_tibia" type="hinge" axis="0 -1 0" range="-2.0 0.3"/>
+            <geom name="R1_foot" type="box" size="0.004 0.004 0.0175" pos="0 0 -0.0175" mass="0.008" rgba="0.5 0.4 0.3 1"/>
+          </body>
+        </body>
+      </body>
+      <!-- R2 -->
+      <body name="R2_coxa" pos="0 -0.055 -0.015">
+        <joint name="R2_coxa" type="hinge" axis="0 -1 0" range="-0.8 0.8"/>
+        <geom type="box" size="0.006 0.01 0.006" pos="0 -0.01 0" mass="0.006" rgba="0.5 0.4 0.3 1"/>
+        <body name="R2_femur" pos="0 -0.02 0">
+          <joint name="R2_femur" type="hinge" axis="0 -1 0" range="-1.2 0.5"/>
+          <geom type="box" size="0.005 0.005 0.0175" pos="0 0 -0.0175" mass="0.008" rgba="0.5 0.4 0.3 1"/>
+          <body name="R2_tibia" pos="0 0 -0.035">
+            <joint name="R2_tibia" type="hinge" axis="0 -1 0" range="-2.0 0.3"/>
+            <geom name="R2_foot" type="box" size="0.004 0.004 0.0175" pos="0 0 -0.0175" mass="0.008" rgba="0.5 0.4 0.3 1"/>
+          </body>
+        </body>
+      </body>
+      <!-- R3 -->
+      <body name="R3_coxa" pos="-0.06 -0.055 -0.015">
+        <joint name="R3_coxa" type="hinge" axis="0 -1 0" range="-0.8 0.8"/>
+        <geom type="box" size="0.006 0.01 0.006" pos="0 -0.01 0" mass="0.006" rgba="0.5 0.4 0.3 1"/>
+        <body name="R3_femur" pos="0 -0.02 0">
+          <joint name="R3_femur" type="hinge" axis="0 -1 0" range="-1.2 0.5"/>
+          <geom type="box" size="0.005 0.005 0.0175" pos="0 0 -0.0175" mass="0.008" rgba="0.5 0.4 0.3 1"/>
+          <body name="R3_tibia" pos="0 0 -0.035">
+            <joint name="R3_tibia" type="hinge" axis="0 -1 0" range="-2.0 0.3"/>
+            <geom name="R3_foot" type="box" size="0.004 0.004 0.0175" pos="0 0 -0.0175" mass="0.008" rgba="0.5 0.4 0.3 1"/>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+  <actuator>
+    <!-- gear > 1 amplifies ctrl (torque = ctrl * gear) so small ctrl produces visible motion -->
+    <motor name="L1_coxa" joint="L1_coxa" ctrlrange="-1 1" gear="20"/>
+    <motor name="L1_femur" joint="L1_femur" ctrlrange="-1 1" gear="20"/>
+    <motor name="L1_tibia" joint="L1_tibia" ctrlrange="-1 1" gear="20"/>
+    <motor name="L2_coxa" joint="L2_coxa" ctrlrange="-1 1" gear="20"/>
+    <motor name="L2_femur" joint="L2_femur" ctrlrange="-1 1" gear="20"/>
+    <motor name="L2_tibia" joint="L2_tibia" ctrlrange="-1 1" gear="20"/>
+    <motor name="L3_coxa" joint="L3_coxa" ctrlrange="-1 1" gear="20"/>
+    <motor name="L3_femur" joint="L3_femur" ctrlrange="-1 1" gear="20"/>
+    <motor name="L3_tibia" joint="L3_tibia" ctrlrange="-1 1" gear="20"/>
+    <motor name="R1_coxa" joint="R1_coxa" ctrlrange="-1 1" gear="20"/>
+    <motor name="R1_femur" joint="R1_femur" ctrlrange="-1 1" gear="20"/>
+    <motor name="R1_tibia" joint="R1_tibia" ctrlrange="-1 1" gear="20"/>
+    <motor name="R2_coxa" joint="R2_coxa" ctrlrange="-1 1" gear="20"/>
+    <motor name="R2_femur" joint="R2_femur" ctrlrange="-1 1" gear="20"/>
+    <motor name="R2_tibia" joint="R2_tibia" ctrlrange="-1 1" gear="20"/>
+    <motor name="R3_coxa" joint="R3_coxa" ctrlrange="-1 1" gear="20"/>
+    <motor name="R3_femur" joint="R3_femur" ctrlrange="-1 1" gear="20"/>
+    <motor name="R3_tibia" joint="R3_tibia" ctrlrange="-1 1" gear="20"/>
+  </actuator>
+</mujoco>
