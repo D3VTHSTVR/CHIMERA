@@ -14,7 +14,7 @@ import numpy as np
 
 # Project root
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from env.balance_env import BalanceEnv
+from env import BalanceEnv
 from snn.snn_controller import (
     make_policy_params,
     policy_from_params,
@@ -45,9 +45,16 @@ def mutate(params, sigma=0.1):
     return params + np.random.randn(len(params)) * sigma
 
 
-def train(pop_size=20, n_generations=10, max_steps=2500, sigma=0.08, seed=0, use_cpg=True):
+def train(pop_size=20, n_generations=10, max_steps=2500, sigma=0.1, seed=0, use_cpg=True, forward_vel_weight=1.0, max_torque=0.1, foot_clearance_weight=0.25):
     np.random.seed(seed)
-    env = BalanceEnv(gui=False, max_steps=max_steps)
+    # Forward velocity + reward for feet in air (stepping) not on ground (scooting)
+    env = BalanceEnv(
+        gui=False,
+        max_steps=max_steps,
+        forward_vel_weight=forward_vel_weight,
+        max_torque=max_torque,
+        foot_clearance_weight=foot_clearance_weight,
+    )
     dim = param_dim()
     # Initial population
     population = [make_policy_params() for _ in range(pop_size)]
@@ -88,13 +95,16 @@ def main():
     parser.add_argument("--steps", type=int, default=2000, help="Max steps per episode")
     parser.add_argument("--pop", type=int, default=20, help="Population size")
     parser.add_argument("--gen", type=int, default=10, help="Generations")
-    parser.add_argument("--sigma", type=float, default=0.08, help="Mutation std")
+    parser.add_argument("--sigma", type=float, default=0.1, help="Mutation std (higher = more exploration)")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--out", type=str, default="best_policy.npz", help="Output file")
     parser.add_argument("--no-cpg", action="store_true", help="Train raw SNN only (no CPG)")
+    parser.add_argument("--forward-vel", type=float, default=1.0, metavar="W", help="Reward weight for forward velocity (default 1.0)")
+    parser.add_argument("--max-torque", type=float, default=0.1, help="Max joint torque (default 0.1 for leg lift)")
+    parser.add_argument("--foot-clearance", type=float, default=0.25, metavar="W", help="Reward weight for feet in air vs on ground (stepping vs scooting; default 0.25)")
     args = parser.parse_args()
 
-    print("Training SNN balance policy (evolution strategy)" + (" with CPG march" if not args.no_cpg else " raw SNN") + "...", flush=True)
+    print("Training SNN balance policy (evolution)" + (" + CPG" if not args.no_cpg else " raw SNN") + f" forward_vel={args.forward_vel} foot_clearance={args.foot_clearance}...", flush=True)
     best_params, best_reward = train(
         pop_size=args.pop,
         n_generations=args.gen,
@@ -102,6 +112,9 @@ def main():
         sigma=args.sigma,
         seed=args.seed,
         use_cpg=not args.no_cpg,
+        forward_vel_weight=args.forward_vel,
+        max_torque=args.max_torque,
+        foot_clearance_weight=args.foot_clearance,
     )
     np.savez(args.out, params=best_params, reward=best_reward)
     print(f"Saved best policy to {args.out} (reward={best_reward:.2f})", flush=True)
