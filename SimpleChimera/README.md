@@ -1,22 +1,18 @@
-# 6-Legged Insect Balance (SNN)
+# SimpleChimera: 6-Legged Insect Balance & Walking
 
-Minimal from-scratch project: a simple 6-legged insect in PyBullet, controlled by a spiking neural network (SNN), trained to **balance** in a tailored environment. No dependency on NeuroMechFly.
+Minimal 6-legged insect in **MuJoCo** (or PyBullet): train an SNN policy to balance and walk, then run it with the saved policy. No preprogrammed gait—the policy learns to step (forward velocity + foot clearance rewards).
 
 ## Setup
 
 ```bash
-cd /Users/devthstvr3/Desktop/SPRING2026/CS485/insect_balance
-conda create -n insect_balance python=3.8 -y
-conda activate insect_balance
+cd Chimera/SimpleChimera
+conda create -n neuromechfly python=3.10 -y
+conda activate neuromechfly
 pip install -r requirements.txt
 ```
 
-If you already have PyBullet in another env (e.g. `neuromechfly38`), you can use that instead:
-
-```bash
-conda activate neuromechfly38
-# Use that env’s Python when running scripts (see commands below).
-```
+For **MuJoCo** (recommended): `pip install mujoco`.  
+For **PyBullet** fallback: `pip install pybullet` (or `conda install -c conda-forge pybullet` on macOS).
 
 ## Train (headless)
 
@@ -24,36 +20,27 @@ conda activate neuromechfly38
 python train.py --steps 2000 --pop 20 --gen 10
 ```
 
-Saves the best policy to `best_policy.npz`. Use the **same Python** that has `pybullet` (e.g. from your conda env: `path/to/env/bin/python train.py ...`).
+Saves the best policy to `best_policy.npz`. Options: `--forward-vel`, `--foot-clearance`, `--max-torque`, `--no-cpg`, `--sigma`, `--out`.
 
 ## Run with GUI
 
-```bash
-python run.py --policy best_policy.npz --gui
-```
-
-Press Enter in the terminal when you want to close the simulation window.
-
-### On macOS (especially Apple Silicon)
-
-PyBullet has no pip wheel for Python 3.8 on arm64, so `pip install pybullet` may try to build from source and fail. Use conda instead:
+**MuJoCo** (preferred; same env as training):
 
 ```bash
-conda install -c conda-forge pybullet   # in the env you use for this project
+# On macOS: use mjpython so the viewer works
+mjpython run.py --policy best_policy.npz --gui
 ```
 
-If you get `ModuleNotFoundError: No module named 'pybullet'` even after installing, your shell’s `python` may not be from that env. Use either:
+On Linux you can use `python run.py --policy best_policy.npz --gui` if MuJoCo is installed.
 
-- **Launcher script** (recommended):  
-  `./run_gui.sh`  
-  This runs with `conda run -n neuromechfly38` so the correct Python is used.
+Options: `--smooth`, `--torque_scale`, `--max_torque`, `--no-cpg`.
 
-- **Or run explicitly**:  
-  `conda run -n neuromechfly38 python run.py --gui`
+Press Enter in the terminal to close the simulation.
 
 ## Design
 
-- **Robot**: 6-legged insect with **3 DOF per leg (Coxa, Femur, Tibia)**, matching the fly model: 18 actuated joints total. URDF in `robot/`.
-- **Environment**: Flat floor, soft contacts, optional reduced gravity. Reward = stay upright (penalize tilt and angular velocity).
-- **SNN**: Leaky integrate-and-fire (LIF) neurons; state (orientation, angular vel, joint angles) → hidden layer → 12 joint torques. Trained with evolution strategy (no backprop).
-- **Training**: Random / evolutionary search over SNN parameters; each candidate runs for a few seconds and gets a balance reward.
+- **Robot**: 18 revolute joints (3 per leg: Coxa, Femur, Tibia), L1–L3, R1–R3. MuJoCo model: `robot/six_leg_insect.xml`.
+- **Environment**: MuJoCo (or PyBullet). State = 40 (roll, pitch, rates, 18 joint positions, 18 joint velocities). Action = 18 torques in [-1, 1] × `max_torque`. Reward = balance + forward velocity + foot clearance (stepping) + straight walking (lateral/yaw penalty).
+- **Controller**: Evolved SNN + optional CPG. Train with `train.py`; run loads `best_policy.npz` only (no fixed rhythm mode).
+
+See **[HOW_IT_WORKS.md](HOW_IT_WORKS.md)** for data flow, joint order, and optional C++ build (Kilowatt/MuJoCo).
